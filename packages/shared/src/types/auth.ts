@@ -21,6 +21,8 @@ export interface TenantJwtPayload {
   role: UserRole;
   schoolId: string;
   schoolSlug: string;
+  mustChangePassword?: boolean;
+  setupCompleted?: boolean;
 }
 
 export interface TenantUser {

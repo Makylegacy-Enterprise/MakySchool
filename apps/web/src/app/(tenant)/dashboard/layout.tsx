@@ -5,7 +5,7 @@ import { TenantSidebar } from "@/components/layout/TenantSidebar";
 import { SubscriptionLockout } from "@/components/tenant/SubscriptionLockout";
 import { TenantSchoolProvider } from "@/providers/TenantSchoolProvider";
 import { apiFetch } from "@/lib/api/server";
-import { getTenantFromHeaders } from "@/lib/tenant/server";
+import { getServerTenantContext } from "@/lib/tenant/server";
 import type { SetupStatusResponse } from "@makyschool/shared/types";
 
 export default async function TenantDashboardLayout({
@@ -14,7 +14,8 @@ export default async function TenantDashboardLayout({
   children: React.ReactNode;
 }) {
   const headerList = await headers();
-  const tenant = getTenantFromHeaders(headerList);
+  const tenant = await getServerTenantContext(headerList);
+  const isSetupWizard = headerList.get("x-makyschool-setup") === "1";
 
   if (!tenant?.schoolSlug) {
     redirect("/login");
@@ -28,6 +29,18 @@ export default async function TenantDashboardLayout({
     });
   } catch {
     status = null;
+  }
+
+  if (isSetupWizard) {
+    return (
+      <TenantSchoolProvider
+        schoolSlug={tenant.schoolSlug}
+        school={status?.school ?? null}
+        setupStatus={status}
+      >
+        {children}
+      </TenantSchoolProvider>
+    );
   }
 
   return (

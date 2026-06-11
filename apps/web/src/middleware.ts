@@ -1,9 +1,21 @@
-import { TENANT_HEADERS } from "@makyschool/shared/constants";
+import {
+  TENANT_ACCESS_COOKIE,
+  TENANT_HEADERS,
+  TENANT_REFRESH_COOKIE,
+} from "@makyschool/shared/constants";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getTenantPayloadFromRequest } from "@/lib/auth/verify-tenant-token";
 import { extractSchoolSlug } from "@/lib/tenant/extract-school-slug";
 
-export function middleware(request: NextRequest) {
+const SETUP_PATH = "/dashboard/setup";
+
+function clearTenantCookies(response: NextResponse) {
+  response.cookies.delete(TENANT_ACCESS_COOKIE);
+  response.cookies.delete(TENANT_REFRESH_COOKIE);
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === "/register" || pathname === "/superadmin/login") {
@@ -15,23 +27,45 @@ export function middleware(request: NextRequest) {
     request.cookies.get("superadmin_refresh_token");
 
   const hasTenantSession =
-    request.cookies.get("tenant_access_token") ??
-    request.cookies.get("tenant_refresh_token");
+    request.cookies.get(TENANT_ACCESS_COOKIE) ?? request.cookies.get(TENANT_REFRESH_COOKIE);
 
-  if (pathname.startsWith("/superadmin")) {
-    if (!hasSuperAdminSession) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+  const tenantPayload = hasTenantSession ? await getTenantPayloadFromRequest(request) : null;
+
+  const isTenantProtected =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/auth/change-password");
+
+  if (isTenantProtected) {
+    if (!hasTenantSession) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    if (!tenantPayload) {
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      clearTenantCookies(response);
+      return response;
     }
   }
 
-  const isTenantProtected = pathname.startsWith("/dashboard");
+  if (tenantPayload) {
+    const mustChangePassword = Boolean(tenantPayload.mustChangePassword);
+    const setupCompleted = Boolean(tenantPayload.setupCompleted);
 
-  if (isTenantProtected && !hasTenantSession) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    if (mustChangePassword && pathname !== "/auth/change-password") {
+      return NextResponse.redirect(new URL("/auth/change-password", request.url));
+    }
+
+    if (
+      !mustChangePassword &&
+      !setupCompleted &&
+      pathname.startsWith("/dashboard") &&
+      pathname !== SETUP_PATH
+    ) {
+      return NextResponse.redirect(new URL(SETUP_PATH, request.url));
+    }
+
+    if (!mustChangePassword && setupCompleted && pathname === SETUP_PATH) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
   }
 
   if (pathname === "/login") {
@@ -39,21 +73,36 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
     }
 
-    if (hasTenantSession) {
+    if (tenantPayload) {
+      if (tenantPayload.mustChangePassword) {
+        return NextResponse.redirect(new URL("/auth/change-password", request.url));
+      }
+      if (!tenantPayload.setupCompleted) {
+        return NextResponse.redirect(new URL(SETUP_PATH, request.url));
+      }
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
 
   const host = request.headers.get("host") ?? "";
-  const schoolSlug = extractSchoolSlug(host);
+  const hostSchoolSlug = extractSchoolSlug(host);
+  const resolvedSchoolSlug = hostSchoolSlug ?? tenantPayload?.schoolSlug ?? null;
 
   const requestHeaders = new Headers(request.headers);
 
-  if (schoolSlug) {
-    requestHeaders.set(TENANT_HEADERS.SCHOOL_SLUG, schoolSlug);
+  if (resolvedSchoolSlug) {
+    requestHeaders.set(TENANT_HEADERS.SCHOOL_SLUG, resolvedSchoolSlug);
   } else {
     requestHeaders.delete(TENANT_HEADERS.SCHOOL_SLUG);
     requestHeaders.delete(TENANT_HEADERS.SCHOOL_ID);
+  }
+
+  if (tenantPayload?.schoolId) {
+    requestHeaders.set(TENANT_HEADERS.SCHOOL_ID, tenantPayload.schoolId);
+  }
+
+  if (pathname === SETUP_PATH || pathname.startsWith(`${SETUP_PATH}/`)) {
+    requestHeaders.set("x-makyschool-setup", "1");
   }
 
   return NextResponse.next({

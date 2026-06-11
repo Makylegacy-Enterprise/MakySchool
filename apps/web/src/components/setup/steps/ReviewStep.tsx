@@ -1,19 +1,59 @@
-export function ReviewStep({ data }: { data: any }) {
+import { theme } from "@/lib/theme";
+
+type ReviewData = {
+  profile: {
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    schoolType: string;
+  };
+  academicYear: {
+    year: number;
+    terms: Array<{ name: string; startDate: string; endDate: string }>;
+  };
+  gradingScale: {
+    bands: Array<{ label: string; minScore: number; maxScore: number; description: string }>;
+  };
+};
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className={`rounded-xl border border-[#252A3A] bg-[#0F1117] p-5`}>
+      <h3 className={`text-sm font-semibold ${theme.heading}`}>{title}</h3>
+      <div className={`mt-3 space-y-1 text-sm ${theme.muted}`}>{children}</div>
+    </div>
+  );
+}
+
+export function ReviewStep({ data }: { data: ReviewData }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-slate-900">School Profile</h3>
-        <p className="mt-2 text-sm text-slate-600">{data.profile.name || "Unnamed"}</p>
-        <p className="text-sm text-slate-600">{data.profile.email || "No email"}</p>
-      </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-slate-900">Academic Year</h3>
-        <p className="mt-2 text-sm text-slate-600">{data.academicYear.year}</p>
-      </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-slate-900">Grading Scale</h3>
-        <p className="mt-2 text-sm text-slate-600">{data.gradingScale.bands.length} bands configured</p>
-      </div>
+      <Section title="School profile">
+        <p>{data.profile.name || "—"}</p>
+        <p>{data.profile.email || "—"}</p>
+        <p>{data.profile.phone || "—"}</p>
+        <p>{data.profile.address || "—"}</p>
+        <p className="capitalize">{data.profile.schoolType || "—"}</p>
+      </Section>
+
+      <Section title="Academic year & terms">
+        <p>Year: {data.academicYear.year}</p>
+        {data.academicYear.terms.map((term, index) => (
+          <p key={index}>
+            {term.name}: {term.startDate || "—"} → {term.endDate || "—"}
+          </p>
+        ))}
+      </Section>
+
+      <Section title="Grading scale">
+        {data.gradingScale.bands.map((band, index) => (
+          <p key={index}>
+            {band.label}: {band.minScore}–{band.maxScore}
+            {band.description ? ` (${band.description})` : ""}
+          </p>
+        ))}
+      </Section>
     </div>
   );
 }

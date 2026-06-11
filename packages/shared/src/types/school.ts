@@ -41,10 +41,11 @@ export interface SchoolStats {
 }
 
 export interface SetupStatusResponse {
-  school: SchoolRecord | null;
-  profileComplete: boolean;
-  academicYearComplete: boolean;
-  gradingScaleComplete: boolean;
+  profile: boolean;
+  academic_year: boolean;
+  grading_scale: boolean;
+  completed: boolean;
+  school?: SchoolRecord | null;
 }
 
 export interface PaginatedResponse<T> {

@@ -1,34 +1,100 @@
 "use client";
 
 import { FileUpload } from "@/components/ui/FileUpload";
+import { theme } from "@/lib/theme";
 
-export function ProfileStep({ value, onChange }: { value: any; onChange: (next: any) => void }) {
+type ProfileValue = {
+  name: string;
+  logo: File | null;
+  stamp: File | null;
+  email: string;
+  phone: string;
+  address: string;
+  schoolType: string;
+};
+
+const inputClass = theme.input;
+const labelClass = "mb-2 block text-sm font-medium text-[#8B90A7]";
+
+export function ProfileStep({
+  value,
+  onChange,
+}: {
+  value: ProfileValue;
+  onChange: (next: ProfileValue) => void;
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <label className="block lg:col-span-2">
-        <span className="mb-2 block text-sm font-medium text-slate-700">School Name</span>
-        <input value={value.name} onChange={(event) => onChange({ ...value, name: event.target.value })} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+        <span className={labelClass}>School name</span>
+        <input
+          value={value.name}
+          onChange={(event) => onChange({ ...value, name: event.target.value })}
+          className={inputClass}
+        />
       </label>
-      <FileUpload label="Logo" helperText="PNG or JPG, max 2 MB." onChange={(file) => onChange({ ...value, logo: file })} />
-      <FileUpload label="Stamp" helperText="PNG or JPG, max 2 MB." onChange={(file) => onChange({ ...value, stamp: file })} />
+
+      <FileUpload
+        label="Logo"
+        helperText="JPEG, PNG, or WebP. Max 2 MB."
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(file) => onChange({ ...value, logo: file })}
+        dark
+      />
+      <FileUpload
+        label="School stamp"
+        helperText="JPEG, PNG, or WebP. Max 2 MB."
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(file) => onChange({ ...value, stamp: file })}
+        dark
+      />
+
       <label className="block">
-        <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
-        <input value={value.email} onChange={(event) => onChange({ ...value, email: event.target.value })} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+        <span className={labelClass}>Official email</span>
+        <input
+          type="email"
+          value={value.email}
+          onChange={(event) => onChange({ ...value, email: event.target.value })}
+          className={inputClass}
+        />
       </label>
       <label className="block">
-        <span className="mb-2 block text-sm font-medium text-slate-700">Phone</span>
-        <input value={value.phone} onChange={(event) => onChange({ ...value, phone: event.target.value })} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+        <span className={labelClass}>Phone number</span>
+        <input
+          value={value.phone}
+          onChange={(event) => onChange({ ...value, phone: event.target.value })}
+          className={inputClass}
+        />
       </label>
       <label className="block lg:col-span-2">
-        <span className="mb-2 block text-sm font-medium text-slate-700">Address</span>
-        <textarea value={value.address} onChange={(event) => onChange({ ...value, address: event.target.value })} rows={3} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+        <span className={labelClass}>Physical address</span>
+        <textarea
+          value={value.address}
+          onChange={(event) => onChange({ ...value, address: event.target.value })}
+          rows={3}
+          className={inputClass}
+        />
       </label>
+
       <div className="lg:col-span-2">
-        <p className="mb-2 block text-sm font-medium text-slate-700">School Type</p>
+        <p className={labelClass}>School type</p>
         <div className="flex flex-wrap gap-3">
-          {[("primary"), ("secondary"), ("both")].map((type) => (
-            <label key={type} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">
-              <input type="radio" name="schoolType" checked={value.schoolType === type} onChange={() => onChange({ ...value, schoolType: type })} />
+          {(["primary", "secondary", "both"] as const).map((type) => (
+            <label
+              key={type}
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2.5 text-sm capitalize transition ${
+                value.schoolType === type
+                  ? "border-[#4F6EF7] bg-[#1E2A5E] text-[#F0F2FA]"
+                  : "border-[#252A3A] text-[#8B90A7] hover:border-[#3D4357]"
+              }`}
+            >
+              <input
+                type="radio"
+                name="schoolType"
+                className="sr-only"
+                checked={value.schoolType === type}
+                onChange={() => onChange({ ...value, schoolType: type })}
+              />
               {type}
             </label>
           ))}

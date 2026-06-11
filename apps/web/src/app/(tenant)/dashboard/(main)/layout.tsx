@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { apiFetch } from "@/lib/api/server";
-import { getTenantFromHeaders } from "@/lib/tenant/server";
+import { getServerTenantContext } from "@/lib/tenant/server";
 
 export default async function ActiveDashboardLayout({
   children,
@@ -9,20 +9,19 @@ export default async function ActiveDashboardLayout({
   children: React.ReactNode;
 }) {
   const headerList = await headers();
-  const tenant = getTenantFromHeaders(headerList);
+  const tenant = await getServerTenantContext(headerList);
 
   if (!tenant?.schoolSlug) {
     redirect("/login");
   }
 
   try {
-    const payload = await apiFetch<{ school: { status: string } | null }>(
+    const payload = await apiFetch<{ school: { status: string } | null; completed: boolean }>(
       "/schools/setup/status",
       { schoolSlug: tenant.schoolSlug },
     );
-    const school = payload.school;
 
-    if (!school || school.status === "setup") {
+    if (payload.completed === false) {
       redirect("/dashboard/setup");
     }
   } catch {

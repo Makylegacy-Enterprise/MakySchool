@@ -3,12 +3,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SUBSCRIPTION_FEE_UGX } from "@makyschool/shared/constants";
 import { apiFetch } from "@/lib/api/server";
-import { getTenantFromHeaders } from "@/lib/tenant/server";
+import { getServerTenantContext } from "@/lib/tenant/server";
 import type { SchoolRecord } from "@makyschool/shared/types";
 
 export default async function BillingPage() {
   const headerList = await headers();
-  const tenant = getTenantFromHeaders(headerList);
+  const tenant = await getServerTenantContext(headerList);
 
   if (!tenant?.schoolSlug) {
     redirect("/login");

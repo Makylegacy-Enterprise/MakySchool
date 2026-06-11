@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middleware/superAdminAuth.js";
 import {
@@ -59,7 +60,8 @@ superAdminSchoolsRouter.get("/", async (req, res) => {
       s.subscription_status,
       s.school_type,
       s.created_at,
-      COALESCE(u.email, '') AS admin_email
+      COALESCE(u.email, '') AS admin_email,
+      (SELECT COUNT(*)::int FROM users u2 WHERE u2.school_id = s.id) AS user_count
     FROM schools s
     LEFT JOIN LATERAL (
       SELECT email FROM users u WHERE u.school_id = s.id AND ${USER_ADMIN_ROLE_SQL} ORDER BY u.created_at ASC LIMIT 1
@@ -105,8 +107,18 @@ superAdminSchoolsRouter.post("/", async (req, res) => {
     return res.status(400).json({ error: "School name, admin name, and admin email are required" });
   }
 
+  const normalizedAdminEmail = adminEmail.toLowerCase().trim();
+
+  const existingEmail = await pool.query(
+    `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND school_id IS NOT NULL LIMIT 1`,
+    [normalizedAdminEmail],
+  );
+  if (existingEmail.rowCount) {
+    return res.status(409).json({ error: "Admin email is already in use for a school account" });
+  }
+
   const schoolId = crypto.randomUUID();
-  const tempPassword = crypto.randomUUID().slice(0, 12);
+  const tempPassword = randomBytes(10).toString("hex");
   const slug = await generateUniqueSlug(schoolName);
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
@@ -119,9 +131,10 @@ superAdminSchoolsRouter.post("/", async (req, res) => {
 
     await pool.query(
       `INSERT INTO users (
-         id, school_id, email, password_hash, full_name, name, role, account_status
-       ) VALUES ($1, $2, $3, $4, $5, $5, 'ADMIN', 'ACTIVE')`,
-      [crypto.randomUUID(), schoolId, adminEmail.toLowerCase().trim(), passwordHash, adminName.trim()],
+         id, school_id, email, password_hash, full_name, name, role, account_status,
+         is_temp_password, setup_completed
+       ) VALUES ($1, $2, $3, $4, $5, $5, 'ADMIN', 'ACTIVE', true, false)`,
+      [crypto.randomUUID(), schoolId, normalizedAdminEmail, passwordHash, adminName.trim()],
     );
 
     await pool.query("COMMIT");
@@ -133,6 +146,7 @@ superAdminSchoolsRouter.post("/", async (req, res) => {
   return res.status(201).json({
     data: {
       school: { id: schoolId, slug, name: schoolName, status: "setup" },
+      admin: { email: normalizedAdminEmail },
       tempPassword,
     },
   });

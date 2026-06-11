@@ -1,23 +1,224 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import {
+  Building2,
+  CheckCircle2,
+  Copy,
+  Mail,
+  Plus,
+  User,
+} from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { SlideOver } from "@/components/ui/SlideOver";
+import { theme } from "@/lib/theme";
+
+type ProvisionResponse = {
+  school: { id: string; slug: string; name: string };
+  admin: { email: string };
+  tempPassword: string;
+};
+
+function Field({
+  id,
+  label,
+  name,
+  type = "text",
+  placeholder,
+  hint,
+  icon: Icon,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  type?: string;
+  placeholder?: string;
+  hint?: string;
+  icon: typeof Building2;
+}) {
+  return (
+    <label htmlFor={id} className="block">
+      <span className="mb-2 block text-xs font-medium text-[#8B90A7]">{label}</span>
+      <div className="relative">
+        <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#3D4357]" />
+        <input
+          id={id}
+          name={name}
+          type={type}
+          required
+          placeholder={placeholder}
+          className={`${theme.input} pl-10`}
+        />
+      </div>
+      {hint ? <p className="mt-1.5 text-xs text-[#3D4357]">{hint}</p> : null}
+    </label>
+  );
+}
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h3 className="text-sm font-medium text-[#F0F2FA]">{title}</h3>
+        {description ? (
+          <p className="mt-0.5 text-xs text-[#8B90A7]">{description}</p>
+        ) : null}
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function CopyButton({
+  label,
+  value,
+  copiedLabel = "Copied",
+  className = "",
+}: {
+  label: string;
+  value: string;
+  copiedLabel?: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      }}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#252A3A] px-3 py-2 text-xs font-medium text-[#4F6EF7] transition hover:bg-[#1E2A5E] ${className}`}
+    >
+      <Copy className="h-3.5 w-3.5" />
+      {copied ? copiedLabel : label}
+    </button>
+  );
+}
+
+function SuccessView({
+  data,
+  onDone,
+}: {
+  data: ProvisionResponse;
+  onDone: () => void;
+}) {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "makyschool.com";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${rootDomain}`;
+  const isLocal = appUrl.includes("localhost");
+  const loginUrl = isLocal
+    ? `${appUrl.replace(/\/$/, "")}/login`
+    : `https://${data.school.slug}.${rootDomain}/login`;
+
+  const credentialsText = [
+    `School: ${data.school.name}`,
+    `Slug: ${data.school.slug}`,
+    `Login URL: ${loginUrl}`,
+    `Admin email: ${data.admin.email}`,
+    `Temporary password: ${data.tempPassword}`,
+  ].join("\n");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0D2E1F]">
+          <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-[#F0F2FA]">School provisioned</h3>
+        <p className="mt-1 text-sm text-[#8B90A7]">
+          Share the credentials below with the school administrator.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-[#252A3A] bg-[#0F1117] divide-y divide-[#252A3A]">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs text-[#8B90A7]">School</p>
+            <p className="truncate text-sm font-medium text-[#F0F2FA]">{data.school.name}</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#1E2A5E] px-2.5 py-0.5 font-mono text-xs text-[#93ACFF]">
+            {data.school.slug}
+          </span>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-xs text-[#8B90A7]">Admin email</p>
+          <p className="mt-0.5 text-sm text-[#F0F2FA]">{data.admin.email}</p>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-xs text-[#8B90A7]">Login URL</p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-lg bg-[#181C27] px-3 py-2 font-mono text-xs text-[#F0F2FA]">
+              {loginUrl}
+            </code>
+            <CopyButton label="Copy" value={loginUrl} />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-amber-400/90">
+          Temporary password
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <code className="min-w-0 flex-1 rounded-lg border border-[#252A3A] bg-[#0F1117] px-3 py-2.5 font-mono text-sm tracking-wide text-[#F0F2FA]">
+            {data.tempPassword}
+          </code>
+          <CopyButton label="Copy" value={data.tempPassword} />
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-amber-400/80">
+          This password is shown once. The admin must change it on first sign-in.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <CopyButton
+          label="Copy all credentials"
+          value={credentialsText}
+          copiedLabel="All copied"
+          className="flex-1 py-2.5 text-sm"
+        />
+        <button
+          type="button"
+          onClick={onDone}
+          className={`${theme.btnPrimary} flex-1`}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function AddSchoolPanel({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState<string | null>(null);
-  const [loginUrl, setLoginUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [success, setSuccess] = useState<ProvisionResponse | null>(null);
+
+  function resetPanel() {
+    setError(null);
+    setSuccess(null);
+    setLoading(false);
+  }
+
+  function handleClose() {
+    setOpen(false);
+    resetPanel();
+  }
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    setPassword(null);
-    setLoginUrl(null);
 
     try {
       const payload = {
@@ -26,113 +227,132 @@ export function AddSchoolPanel({ onCreated }: { onCreated: () => void }) {
         adminEmail: String(formData.get("adminEmail") ?? "").trim(),
       };
 
-      const response = await apiClient<{ school: { id: string; slug: string }; tempPassword: string }>("/superadmin/schools", {
+      const response = await apiClient<ProvisionResponse>("/superadmin/schools", {
         method: "POST",
         body: payload,
       });
 
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "makyschool.com";
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${rootDomain}`;
-      const slug = response.data.school.slug;
-      const isLocal = appUrl.includes("localhost");
-      const tenantLoginUrl = isLocal
-        ? `${appUrl.replace(/\/$/, "")}/login`
-        : `https://${slug}.${rootDomain}/login`;
-
-      setLoginUrl(tenantLoginUrl);
-      setPassword(response.data.tempPassword);
+      setSuccess(response.data);
       onCreated();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to provision school");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to provision school");
     } finally {
       setLoading(false);
     }
   }
+
+  const formFooter = !success ? (
+    <div className="flex items-center justify-end gap-3">
+      <button type="button" onClick={handleClose} className={theme.btnGhost}>
+        Cancel
+      </button>
+      <button
+        form="provision-school-form"
+        disabled={loading}
+        type="submit"
+        className={`${theme.btnPrimary} min-w-[8.5rem]`}
+      >
+        {loading ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            Provisioning…
+          </span>
+        ) : (
+          "Provision school"
+        )}
+      </button>
+    </div>
+  ) : null;
 
   return (
     <>
       <button
         type="button"
         id="add-school-trigger"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          resetPanel();
+          setOpen(true);
+        }}
         className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#4F6EF7] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#3D5CE6]"
       >
         <Plus className="h-4 w-4" />
         Add school
       </button>
+
       <SlideOver
         open={open}
-        onClose={() => setOpen(false)}
-        title="Provision a new school"
-        description="Creates the school record, generates a slug, and issues the temporary admin password once."
+        onClose={handleClose}
+        title={success ? "School ready" : "Add school"}
+        description={
+          success
+            ? undefined
+            : "Create a new tenant school and issue a one-time admin password."
+        }
+        footer={formFooter}
       >
-        <form
-          className="space-y-4"
-          action={(formData) => {
-            void handleSubmit(formData);
-          }}
-        >
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">School Name</span>
-            <input name="schoolName" required className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none ring-0 transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">Admin Name</span>
-            <input name="adminName" required className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none ring-0 transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">Admin Email</span>
-            <input type="email" name="adminEmail" required className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 outline-none ring-0 transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100" />
-          </label>
+        {success ? (
+          <SuccessView
+            data={success}
+            onDone={() => {
+              handleClose();
+              onCreated();
+            }}
+          />
+        ) : (
+          <form
+            id="provision-school-form"
+            className="space-y-8"
+            action={(formData) => {
+              void handleSubmit(formData);
+            }}
+          >
+            <Section
+              title="School details"
+              description="A URL-safe slug is generated automatically from the school name."
+            >
+              <Field
+                id="schoolName"
+                name="schoolName"
+                label="School name"
+                placeholder="e.g. Easton High School"
+                icon={Building2}
+              />
+            </Section>
 
-          {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
-          {password ? (
-            <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900">
-              <div>
-                <p className="font-medium">Share with the school admin</p>
-                <p className="mt-1 text-emerald-800">
-                  They sign in at their school URL using the admin email above and this temporary password.
-                </p>
-              </div>
-              {loginUrl ? (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">School login URL</p>
-                  <code className="mt-2 block overflow-x-auto rounded-lg bg-white px-3 py-2 font-mono text-xs">{loginUrl}</code>
-                </div>
-              ) : null}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Temporary password</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <code className="rounded-lg bg-white px-3 py-2 font-mono text-sm">{password}</code>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(password);
-                      setCopied(true);
-                      window.setTimeout(() => setCopied(false), 1500);
-                    }}
-                    className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
-                  >
-                    {copied ? "Copied" : "Copy password"}
-                  </button>
-                </div>
-              </div>
-              <button type="button" onClick={() => { setPassword(null); setLoginUrl(null); }} className="text-xs font-medium text-emerald-700 underline">
-                Dismiss
-              </button>
-            </div>
-          ) : null}
+            <div className="h-px bg-[#252A3A]" />
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-              Cancel
-            </button>
-            <button disabled={loading} type="submit" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70">
-              {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" /> : null}
-              Provision School
-            </button>
-          </div>
-        </form>
+            <Section
+              title="Administrator account"
+              description="This person will complete the setup wizard on first login."
+            >
+              <Field
+                id="adminName"
+                name="adminName"
+                label="Full name"
+                placeholder="e.g. Jane Nakato"
+                icon={User}
+              />
+              <Field
+                id="adminEmail"
+                name="adminEmail"
+                type="email"
+                label="Email address"
+                placeholder="admin@school.ug"
+                hint="Used to sign in. Must be unique across schools."
+                icon={Mail}
+              />
+            </Section>
+
+            {error ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+              >
+                {error}
+              </div>
+            ) : null}
+          </form>
+        )}
       </SlideOver>
     </>
   );

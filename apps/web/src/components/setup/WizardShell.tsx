@@ -8,9 +8,8 @@ import { AcademicYearStep } from "@/components/setup/steps/AcademicYearStep";
 import { GradingScaleStep } from "@/components/setup/steps/GradingScaleStep";
 import { ReviewStep } from "@/components/setup/steps/ReviewStep";
 import { apiClient } from "@/lib/api/client";
+import { persistSchoolSlug } from "@/lib/auth/session";
 import { theme } from "@/lib/theme";
-
-const storageKey = "makyschool.setupDraft";
 
 type WizardState = {
   step: number;
@@ -31,6 +30,12 @@ type WizardState = {
     bands: Array<{ label: string; minScore: number; maxScore: number; description: string }>;
   };
 };
+
+const STEP_LABELS = ["School Profile", "Academic Year", "Grading Scale", "Review & Confirm"];
+
+function draftKey(schoolId: string) {
+  return `setup_draft_${schoolId}`;
+}
 
 function initialState(school?: SchoolRecord | null): WizardState {
   return {
@@ -53,7 +58,12 @@ function initialState(school?: SchoolRecord | null): WizardState {
       ],
     },
     gradingScale: {
-      bands: [{ label: "A", minScore: 80, maxScore: 100, description: "Excellent" }],
+      bands: [
+        { label: "Distinction", minScore: 75, maxScore: 100, description: "" },
+        { label: "Credit", minScore: 60, maxScore: 74, description: "" },
+        { label: "Pass", minScore: 45, maxScore: 59, description: "" },
+        { label: "Fail", minScore: 0, maxScore: 44, description: "" },
+      ],
     },
   };
 }
@@ -61,7 +71,7 @@ function initialState(school?: SchoolRecord | null): WizardState {
 function validateStep(state: WizardState, step: number) {
   if (step === 1) {
     if (!state.profile.name.trim()) return "School name is required";
-    if (!state.profile.email.trim()) return "School email is required";
+    if (!state.profile.email.trim()) return "Official email is required";
     if (!state.profile.schoolType) return "School type is required";
   }
 
@@ -78,22 +88,83 @@ function validateStep(state: WizardState, step: number) {
       if (!band.label.trim()) return "Each grading band needs a label";
       if (band.minScore > band.maxScore) return "Min score cannot exceed max score";
     }
+
+    const sorted = [...state.gradingScale.bands].sort((a, b) => a.minScore - b.minScore);
+    for (let index = 0; index < sorted.length; index += 1) {
+      const band = sorted[index];
+      if (band.minScore < 0 || band.maxScore > 100) {
+        return "All scores must be between 0 and 100";
+      }
+      if (index > 0 && band.minScore <= sorted[index - 1].maxScore) {
+        return "Grading bands cannot overlap";
+      }
+    }
+
+    const coverageStart = sorted[0]?.minScore ?? -1;
+    const coverageEnd = sorted[sorted.length - 1]?.maxScore ?? -1;
+    if (coverageStart !== 0 || coverageEnd !== 100) {
+      return "Grading bands must cover the full 0–100 range";
+    }
   }
 
   return null;
 }
 
+function StepIndicator({ currentStep }: { currentStep: number }) {
+  return (
+    <div className="flex items-center justify-center">
+      {STEP_LABELS.map((_, index) => {
+        const stepNumber = index + 1;
+        const isCompleted = stepNumber < currentStep;
+        const isCurrent = stepNumber === currentStep;
+
+        return (
+          <div key={stepNumber} className="flex items-center">
+            <div
+              className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
+                isCompleted
+                  ? "bg-[#4F6EF7] text-white"
+                  : isCurrent
+                    ? "border-2 border-[#4F6EF7] text-[#4F6EF7]"
+                    : "border border-[#252A3A] text-[#8B90A7]"
+              }`}
+            >
+              {stepNumber}
+            </div>
+            {stepNumber < STEP_LABELS.length ? (
+              <div
+                className={`mx-2 h-px w-8 sm:w-12 ${
+                  stepNumber < currentStep ? "bg-[#4F6EF7]" : "bg-[#252A3A]"
+                }`}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function WizardShell({
   school,
   schoolSlug,
+  schoolId,
 }: {
   school?: SchoolRecord | null;
   schoolSlug: string;
+  schoolId: string;
 }) {
   const router = useRouter();
   const [state, setState] = useState(() => initialState(school));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusChecked, setStatusChecked] = useState(false);
+
+  const storageKey = useMemo(() => draftKey(schoolId), [schoolId]);
+
+  useEffect(() => {
+    persistSchoolSlug(schoolSlug);
+  }, [schoolSlug]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
@@ -109,9 +180,12 @@ export function WizardShell({
         window.localStorage.removeItem(storageKey);
       }
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
+    if (!statusChecked) {
+      return;
+    }
     window.localStorage.setItem(
       storageKey,
       JSON.stringify({
@@ -119,34 +193,44 @@ export function WizardShell({
         profile: { ...state.profile, logo: null, stamp: null },
       }),
     );
-  }, [state]);
+  }, [state, storageKey, statusChecked]);
 
-  const steps = useMemo(
-    () => ["School Profile", "Academic Year", "Grading Scale", "Review & Finish"],
-    [],
-  );
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await apiClient<{
+          completed: boolean;
+          school: SchoolRecord | null;
+        }>("/schools/setup/status", { schoolSlug });
 
-  function goNext() {
-    const validationError = validateStep(state, state.step);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setError(null);
-    setState({ ...state, step: state.step + 1 });
-  }
+        if (response.data.completed) {
+          router.replace("/dashboard");
+          return;
+        }
 
-  async function finishSetup() {
-    const validationError = validateStep(state, 3);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+        if (response.data.school) {
+          setState((current) => ({
+            ...current,
+            profile: {
+              ...current.profile,
+              name: response.data.school?.name ?? current.profile.name,
+              email: response.data.school?.email ?? current.profile.email,
+              phone: response.data.school?.phone ?? current.profile.phone,
+              address: response.data.school?.address ?? current.profile.address,
+              schoolType: response.data.school?.school_type ?? current.profile.schoolType,
+            },
+          }));
+        }
+      } catch {
+        // allow wizard to render; step saves will surface errors
+      } finally {
+        setStatusChecked(true);
+      }
+    })();
+  }, [router, schoolSlug]);
 
-    setLoading(true);
-    setError(null);
-
-    try {
+  async function persistStep(step: number) {
+    if (step === 1) {
       const profileData = new FormData();
       profileData.set("name", state.profile.name);
       profileData.set("email", state.profile.email);
@@ -156,28 +240,57 @@ export function WizardShell({
       if (state.profile.logo) profileData.set("logo", state.profile.logo);
       if (state.profile.stamp) profileData.set("stamp", state.profile.stamp);
 
-      const profileResponse = await apiClient("/schools/setup/profile", {
-        method: "POST",
+      await apiClient("/schools/setup/profile", {
+        method: "PATCH",
         body: profileData,
         schoolSlug,
       });
+      return;
+    }
 
-      if (!profileResponse.data) {
-        throw new Error("Failed to save school profile");
-      }
-
+    if (step === 2) {
       await apiClient("/schools/setup/academic-year", {
         method: "POST",
         body: state.academicYear,
         schoolSlug,
       });
+      return;
+    }
 
+    if (step === 3) {
       await apiClient("/schools/setup/grading-scale", {
         method: "POST",
         body: state.gradingScale.bands,
         schoolSlug,
       });
+    }
+  }
 
+  async function goNext() {
+    const validationError = validateStep(state, state.step);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await persistStep(state.step);
+      setState({ ...state, step: state.step + 1 });
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : "Failed to save step");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function finishSetup() {
+    setLoading(true);
+    setError(null);
+
+    try {
       await apiClient("/schools/setup/complete", {
         method: "POST",
         schoolSlug,
@@ -193,24 +306,40 @@ export function WizardShell({
     }
   }
 
+  if (!statusChecked) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#252A3A] border-t-[#4F6EF7]" />
+        <p className="text-sm text-[#8B90A7]">Preparing your setup wizard…</p>
+      </div>
+    );
+  }
+
   return (
-    <div className={`${theme.panel} ${theme.panelPadding}`}>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className={`text-sm ${theme.muted}`}>Step {state.step} of 4</p>
-          <h1 className={`mt-1 text-2xl font-semibold ${theme.heading}`}>{steps[state.step - 1]}</h1>
-        </div>
-        <div className="flex gap-2">
-          {steps.map((step, index) => (
-            <span
-              key={step}
-              className={`h-2 w-8 rounded-full ${index + 1 <= state.step ? "bg-[#4F6EF7]" : "bg-[#252A3A]"}`}
-            />
-          ))}
+    <div className="relative mx-auto max-w-2xl px-4 py-10 sm:py-12">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-8 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full bg-[#4F6EF7]/[0.06] blur-3xl"
+      />
+
+      <div className="relative mb-8 text-center">
+        <p className="text-xs font-medium uppercase tracking-wide text-[#8B90A7]">
+          Step {state.step} of 4
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#F0F2FA]">
+          {STEP_LABELS[state.step - 1]}
+        </h1>
+        <p className="mt-2 text-sm text-[#8B90A7]">
+          {state.step === 4
+            ? "Review everything before launching your school workspace."
+            : "Complete each section to activate your school on MakySchool."}
+        </p>
+        <div className="mt-8">
+          <StepIndicator currentStep={state.step} />
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="relative rounded-2xl border border-[#252A3A] bg-[#181C27] p-6 shadow-xl shadow-black/20 sm:p-8">
         {state.step === 1 ? (
           <ProfileStep
             value={state.profile}
@@ -230,37 +359,42 @@ export function WizardShell({
           />
         ) : null}
         {state.step === 4 ? <ReviewStep data={state} /> : null}
-      </div>
 
-      {error ? (
-        <div className="mt-4 rounded-lg border border-[#252A3A] bg-[#0F1117] px-4 py-3 text-sm text-[#F0F2FA]">
-          {error}
-        </div>
-      ) : null}
+        {error ? (
+          <div className="mt-4 rounded-lg border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {error}
+          </div>
+        ) : null}
 
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setState({ ...state, step: Math.max(1, state.step - 1) })}
-          disabled={state.step === 1}
-          className={`${theme.btnGhost} disabled:opacity-40`}
-        >
-          Back
-        </button>
-        {state.step < 4 ? (
-          <button type="button" onClick={goNext} className={theme.btnPrimary}>
-            Continue
-          </button>
-        ) : (
+        <div className="mt-8 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => void finishSetup()}
-            disabled={loading}
-            className={`${theme.btnPrimary} disabled:opacity-70`}
+            onClick={() => setState({ ...state, step: Math.max(1, state.step - 1) })}
+            disabled={state.step === 1 || loading}
+            className={`${theme.btnGhost} disabled:opacity-40`}
           >
-            {loading ? "Saving…" : "Finish setup"}
+            Back
           </button>
-        )}
+          {state.step < 4 ? (
+            <button
+              type="button"
+              onClick={() => void goNext()}
+              disabled={loading}
+              className={`${theme.btnPrimary} disabled:opacity-70`}
+            >
+              {loading ? "Saving…" : "Next"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void finishSetup()}
+              disabled={loading}
+              className={`${theme.btnPrimary} disabled:opacity-70`}
+            >
+              {loading ? "Launching…" : "Confirm & Launch Dashboard"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

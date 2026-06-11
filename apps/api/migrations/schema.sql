@@ -1,6 +1,4 @@
--- REFERENCE ONLY — do not execute this file.
--- Snapshot of the legacy single-school database before multi-tenant migration.
--- Apply changes with: apps/api/migrations/001_multi_tenant_shift.sql
+-- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.analytics (
@@ -620,7 +618,7 @@ CREATE TABLE public.module_lessons (
 );
 CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  email text UNIQUE,
+  email text,
   phone text,
   full_name text NOT NULL,
   password_hash text,
@@ -672,8 +670,12 @@ CREATE TABLE public.users (
   last_login_at timestamp with time zone,
   status text DEFAULT 'ACTIVE'::text,
   temporary_password character varying,
+  name text,
+  school_class_id uuid,
   CONSTRAINT users_pkey PRIMARY KEY (id),
-  CONSTRAINT users_last_password_reset_by_fkey FOREIGN KEY (last_password_reset_by) REFERENCES public.users(id)
+  CONSTRAINT users_last_password_reset_by_fkey FOREIGN KEY (last_password_reset_by) REFERENCES public.users(id),
+  CONSTRAINT users_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT users_school_class_id_fkey FOREIGN KEY (school_class_id) REFERENCES public.school_classes(id)
 );
 CREATE TABLE public.notification_log (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -807,6 +809,17 @@ CREATE TABLE public.schools (
   contact_email text,
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
+  slug text NOT NULL UNIQUE,
+  logo_url text,
+  stamp_url text,
+  email text,
+  phone text,
+  school_type text CHECK (school_type IS NULL OR (school_type = ANY (ARRAY['primary'::text, 'secondary'::text, 'both'::text]))),
+  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['setup'::text, 'active'::text, 'suspended'::text])),
+  subscription_status text DEFAULT 'unpaid'::text CHECK (subscription_status = ANY (ARRAY['unpaid'::text, 'active'::text, 'expired'::text])),
+  subscription_term text,
+  subscription_year integer,
+  schoolpay_code text,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.submissions (
@@ -850,4 +863,96 @@ CREATE TABLE public.turtle_graphics_results (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT turtle_graphics_results_pkey PRIMARY KEY (id),
   CONSTRAINT turtle_graphics_results_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES public.code_submissions(id)
+);
+CREATE TABLE public.schema_migrations (
+  filename text NOT NULL,
+  applied_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT schema_migrations_pkey PRIMARY KEY (filename)
+);
+CREATE TABLE public.super_admins (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT super_admins_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.school_classes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  level text NOT NULL,
+  stream text,
+  capacity integer,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT school_classes_pkey PRIMARY KEY (id),
+  CONSTRAINT school_classes_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.school_subjects (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT school_subjects_pkey PRIMARY KEY (id),
+  CONSTRAINT school_subjects_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.school_class_subjects (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  subject_id uuid NOT NULL,
+  CONSTRAINT school_class_subjects_pkey PRIMARY KEY (id),
+  CONSTRAINT school_class_subjects_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT school_class_subjects_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT school_class_subjects_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.school_subjects(id)
+);
+CREATE TABLE public.academic_years (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  year integer NOT NULL,
+  is_current boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT academic_years_pkey PRIMARY KEY (id),
+  CONSTRAINT academic_years_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.terms (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  academic_year_id uuid NOT NULL,
+  name text NOT NULL,
+  start_date date,
+  end_date date,
+  is_current boolean DEFAULT false,
+  CONSTRAINT terms_pkey PRIMARY KEY (id),
+  CONSTRAINT terms_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT terms_academic_year_id_fkey FOREIGN KEY (academic_year_id) REFERENCES public.academic_years(id)
+);
+CREATE TABLE public.grading_scales (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  label text NOT NULL,
+  min_score integer NOT NULL,
+  max_score integer NOT NULL,
+  description text,
+  CONSTRAINT grading_scales_pkey PRIMARY KEY (id),
+  CONSTRAINT grading_scales_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.subscription_payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  amount integer NOT NULL,
+  term text NOT NULL,
+  year integer NOT NULL,
+  schoolpay_ref text,
+  paid_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT subscription_payments_pkey PRIMARY KEY (id),
+  CONSTRAINT subscription_payments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.webhook_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  source text NOT NULL,
+  payload jsonb NOT NULL,
+  headers jsonb NOT NULL,
+  processed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT webhook_logs_pkey PRIMARY KEY (id)
 );

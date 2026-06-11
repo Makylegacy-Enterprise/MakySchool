@@ -26,12 +26,17 @@ type SchoolRow = {
   subscription_status: string;
 };
 
-function resolveRedirectPath(accountType: "platform" | "school", school?: SchoolRow | null) {
-  if (accountType === "platform") {
-    return "/superadmin/dashboard";
+function resolveSchoolRedirectPath(
+  isTempPassword: boolean,
+  setupCompleted: boolean,
+) {
+  if (isTempPassword) {
+    return "/auth/change-password";
   }
-
-  return school?.status === "setup" ? "/dashboard/setup" : "/dashboard";
+  if (!setupCompleted) {
+    return "/dashboard/setup";
+  }
+  return "/dashboard";
 }
 
 function clearAuthCookies(res: import("express").Response) {
@@ -89,7 +94,7 @@ authRouter.post("/login", async (req, res) => {
       data: {
         accountType: "platform" as const,
         role: "super_admin" as const,
-        redirectTo: resolveRedirectPath("platform"),
+        redirectTo: "/superadmin/dashboard",
         user: {
           id: superAdmin.id,
           email: superAdmin.email,
@@ -111,6 +116,8 @@ authRouter.post("/login", async (req, res) => {
     school_status: string;
     subscription_status: string;
     account_status: string;
+    is_temp_password: boolean | null;
+    setup_completed: boolean | null;
   }>(
     `SELECT
        u.id,
@@ -120,6 +127,8 @@ authRouter.post("/login", async (req, res) => {
        u.role,
        u.school_id,
        u.account_status,
+       COALESCE(u.is_temp_password, false) AS is_temp_password,
+       COALESCE(u.setup_completed, false) AS setup_completed,
        s.slug AS school_slug,
        s.name AS school_name,
        s.status AS school_status,
@@ -183,6 +192,9 @@ authRouter.post("/login", async (req, res) => {
     subscription_status: candidate.subscription_status,
   };
 
+  const isTempPassword = Boolean(candidate.is_temp_password);
+  const setupCompleted = Boolean(candidate.setup_completed);
+
   const payload = {
     sub: candidate.id,
     email: candidate.email,
@@ -190,16 +202,23 @@ authRouter.post("/login", async (req, res) => {
     role: normalizedRole as "admin" | "head_teacher" | "teacher" | "learner",
     schoolId: candidate.school_id,
     schoolSlug: candidate.school_slug,
+    mustChangePassword: isTempPassword,
+    setupCompleted,
   };
 
-  res.cookie(TENANT_ACCESS_COOKIE, signTenantToken(payload, "15m"), cookieOptions(15 * 60 * 1000));
-  res.cookie(TENANT_REFRESH_COOKIE, signTenantToken(payload, "7d"), cookieOptions(7 * 24 * 60 * 60 * 1000));
+  if (isTempPassword) {
+    res.cookie(TENANT_ACCESS_COOKIE, signTenantToken(payload, "1h"), cookieOptions(60 * 60 * 1000));
+    res.clearCookie(TENANT_REFRESH_COOKIE, { path: "/" });
+  } else {
+    res.cookie(TENANT_ACCESS_COOKIE, signTenantToken(payload, "15m"), cookieOptions(15 * 60 * 1000));
+    res.cookie(TENANT_REFRESH_COOKIE, signTenantToken(payload, "7d"), cookieOptions(7 * 24 * 60 * 60 * 1000));
+  }
 
   return res.json({
     data: {
       accountType: "school" as const,
       role: normalizedRole,
-      redirectTo: resolveRedirectPath("school", school),
+      redirectTo: resolveSchoolRedirectPath(isTempPassword, setupCompleted),
       user: {
         id: candidate.id,
         email: candidate.email,
