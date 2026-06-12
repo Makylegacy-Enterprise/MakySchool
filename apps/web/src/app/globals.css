@@ -66,7 +66,9 @@
 
   --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05);
   --shadow-panel: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 0.06);
   --shadow-accent: 0 4px 14px 0 color-mix(in srgb, var(--color-accent) 25%, transparent);
+  --radius-card: 1rem;
 }
 
 [data-theme="dark"] {
@@ -130,7 +132,9 @@
 
   --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
   --shadow-panel: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 0.35);
   --shadow-accent: 0 4px 14px 0 color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --radius-card: 1rem;
 }
 
 /* ============================================================
@@ -272,7 +276,27 @@ textarea {
 
   .shadow-theme-card   { box-shadow: var(--shadow-card); }
   .shadow-theme-panel  { box-shadow: var(--shadow-panel); }
+  .shadow-theme-soft   { box-shadow: var(--shadow-soft); }
   .shadow-theme-accent { box-shadow: var(--shadow-accent); }
+
+  .ms-card {
+    border-radius: var(--radius-card);
+    border-width: 1px;
+    border-color: var(--color-border);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .ms-hero {
+    border-radius: calc(var(--radius-card) + 0.25rem);
+    background: linear-gradient(
+      135deg,
+      var(--color-accent) 0%,
+      color-mix(in srgb, var(--color-accent) 75%, #6366f1) 100%
+    );
+    box-shadow: var(--shadow-accent);
+    color: var(--color-on-accent);
+  }
 
   .badge-success { background-color: var(--color-success-bg); color: var(--color-success-text); }
   .badge-info    { background-color: var(--color-info-bg);    color: var(--color-info-text); }

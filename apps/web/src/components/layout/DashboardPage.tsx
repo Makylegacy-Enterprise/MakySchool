@@ -37,15 +37,13 @@ export function DashboardPage({
     ) : null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-col">
       {resolvedHeader ? <div className="shrink-0">{resolvedHeader}</div> : null}
 
-      <div className="dashboard-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div
-          className={`mx-auto ${maxWidthClass[maxWidth]} px-4 py-6 sm:px-6 sm:py-6 lg:px-8`}
-        >
-          {children}
-        </div>
+      <div
+        className={`mx-auto w-full ${maxWidthClass[maxWidth]} px-4 py-6 sm:px-6 sm:py-6 lg:px-8`}
+      >
+        {children}
       </div>
     </div>
   );

@@ -4,12 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, CreditCard, LayoutDashboard, LogOut } from "lucide-react";
 import { subscriptionsEnabled } from "@makyschool/shared/constants";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { apiClient } from "@/lib/api/client";
 import { clearSchoolSlug } from "@/lib/auth/session";
 
 const baseLinks = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/classes", label: "Classes & subjects", icon: BookOpen, exact: false },
 ] as const;
 
@@ -51,22 +50,20 @@ export function TenantSidebar({
   }
 
   return (
-    <aside className="hidden h-dvh w-72 shrink-0 flex-col border-r border-sidebar bg-sidebar p-6 lg:flex">
-      <div className="mb-6 shrink-0 border-b border-theme pb-6">
+    <aside className="hidden h-dvh w-64 shrink-0 flex-col border-r border-sidebar bg-sidebar px-4 py-6 lg:flex">
+      <div className="mb-8 shrink-0 px-2">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-theme-accent text-xs font-bold text-on-accent">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-theme-accent text-sm font-bold text-on-accent shadow-theme-accent">
             MS
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-theme-primary">
-              {schoolName ?? "Your school"}
-            </p>
-            <p className="truncate text-xs text-theme-muted">{schoolSlug ?? "school"}</p>
+            <p className="truncate text-sm font-semibold text-theme-primary">MakySchool</p>
+            <p className="truncate text-xs text-theme-muted">{schoolName ?? schoolSlug ?? "School"}</p>
           </div>
         </div>
       </div>
 
-      <nav className="dashboard-scroll flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto overscroll-contain text-sm">
+      <nav className="dashboard-scroll flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto overscroll-contain px-1 text-sm">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href, link.exact);
@@ -74,9 +71,9 @@ export function TenantSidebar({
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-medium transition ${
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 font-medium transition ${
                 active
-                  ? "bg-nav-active text-nav-active"
+                  ? "bg-theme-accent text-on-accent shadow-theme-accent"
                   : "text-theme-muted hover:bg-nav-hover hover:text-theme-primary"
               }`}
             >
@@ -87,15 +84,11 @@ export function TenantSidebar({
         })}
       </nav>
 
-      <div className="mt-auto shrink-0 space-y-2 pt-6">
-        <div className="flex items-center gap-2 px-3">
-          <ThemeToggle />
-          <span className="text-xs text-theme-faint">Theme</span>
-        </div>
+      <div className="mt-auto shrink-0 px-1 pt-6">
         <button
           type="button"
           onClick={() => void handleLogout()}
-          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-theme-muted transition hover:text-theme-primary"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-theme-muted transition hover:bg-nav-hover hover:text-theme-primary"
         >
           <LogOut className="h-4 w-4 shrink-0" />
           Sign out

@@ -9,7 +9,7 @@ import { apiClient } from "@/lib/api/client";
 import { clearSchoolSlug } from "@/lib/auth/session";
 
 const baseLinks = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/classes", label: "Classes", icon: BookOpen, exact: false },
 ] as const;
 
@@ -47,7 +47,7 @@ export function TenantMobileNav({
   }
 
   return (
-    <header className="border-b border-theme bg-sidebar lg:hidden">
+    <header className="border-b border-theme bg-sidebar">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-theme-accent text-xs font-bold text-on-accent">
@@ -77,9 +77,9 @@ export function TenantMobileNav({
             <Link
               key={link.href}
               href={link.href}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition ${
                 active
-                  ? "bg-nav-active text-nav-active"
+                  ? "bg-theme-accent text-on-accent"
                   : "text-theme-muted hover:bg-nav-hover hover:text-theme-primary"
               }`}
             >

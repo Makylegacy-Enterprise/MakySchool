@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { DashboardRightRail } from "@/components/layout/DashboardRightRail";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 import { TenantMobileNav } from "@/components/layout/TenantMobileNav";
 import { TenantSidebar } from "@/components/layout/TenantSidebar";
 import { SubscriptionLockout } from "@/components/tenant/SubscriptionLockout";
@@ -65,6 +67,8 @@ export default async function TenantDashboardLayout({
             schoolStatus={status?.school?.status}
           />
         }
+        topBar={<DashboardTopBar />}
+        rightRail={<DashboardRightRail />}
       >
         {children}
         {subscriptionsEnabled() ? <SubscriptionLockout /> : null}
