@@ -32,7 +32,12 @@ export {
 export {
   PRIMARY_CLASS_LEVELS,
   SECONDARY_CLASS_LEVELS,
+  formatClassLabel,
+  getLevelSectionsForSchoolType,
   getLevelsForSchoolType,
+  groupClassesByLevel,
+  isLevelAllowedForSchoolType,
+  sortClasses,
 } from "./classes";
 
 export { subscriptionsEnabled } from "./features";

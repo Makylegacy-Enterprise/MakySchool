@@ -2,6 +2,12 @@ import { Router } from "express";
 import { pool } from "../../db/pool.js";
 import { USER_LEARNER_ROLE_SQL } from "../../db/userSql.js";
 import type { TenantRequest } from "../../middleware/tenant.js";
+import {
+  findDuplicateClass,
+  formatClassLabel,
+  getSchoolType,
+  isLevelAllowedForSchoolType,
+} from "../../utils/classes.js";
 
 export const classesRouter = Router();
 
@@ -50,11 +56,28 @@ classesRouter.post("/", async (req: TenantRequest, res) => {
     return res.status(400).json({ error: "Level is required" });
   }
 
+  const normalizedStream = stream?.trim() ? stream.trim() : null;
+  const schoolType = await getSchoolType(schoolId);
+
+  if (!isLevelAllowedForSchoolType(level, schoolType)) {
+    return res.status(400).json({
+      error: "This class level is not allowed for your school type.",
+      code: "INVALID_LEVEL",
+    });
+  }
+
+  if (await findDuplicateClass(schoolId, level, normalizedStream)) {
+    return res.status(409).json({
+      error: `${formatClassLabel(level, normalizedStream)} already exists.`,
+      code: "DUPLICATE_CLASS",
+    });
+  }
+
   const result = await pool.query(
     `INSERT INTO school_classes (id, school_id, level, stream, capacity)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [crypto.randomUUID(), schoolId, level, stream ?? null, capacity ?? null],
+    [crypto.randomUUID(), schoolId, level, normalizedStream, capacity ?? null],
   );
 
   return res.status(201).json({ data: result.rows[0] });
@@ -62,7 +85,7 @@ classesRouter.post("/", async (req: TenantRequest, res) => {
 
 classesRouter.patch("/:id", async (req: TenantRequest, res) => {
   const schoolId = req.schoolId;
-  const { id } = req.params;
+  const id = String(req.params.id);
   if (!schoolId) {
     return res.status(400).json({ error: "Missing tenant context" });
   }
@@ -73,28 +96,61 @@ classesRouter.patch("/:id", async (req: TenantRequest, res) => {
     capacity?: number | null;
   };
 
-  const result = await pool.query(
-    `UPDATE school_classes
-     SET level = COALESCE($1, level),
-         stream = COALESCE($2, stream),
-         capacity = COALESCE($3, capacity)
-     WHERE id = $4 AND school_id = $5
-     RETURNING *`,
-    [level ?? null, stream ?? null, capacity ?? null, id, schoolId],
+  const existing = await pool.query<{ level: string; stream: string | null; capacity: number | null }>(
+    "SELECT level, stream, capacity FROM school_classes WHERE id = $1 AND school_id = $2",
+    [id, schoolId],
   );
 
-  if (!result.rowCount) {
+  if (!existing.rowCount) {
     return res.status(404).json({ error: "Class not found" });
   }
+
+  const nextLevel = level ?? existing.rows[0].level;
+  const nextStream =
+    stream === undefined ? existing.rows[0].stream : stream?.trim() ? stream.trim() : null;
+  const schoolType = await getSchoolType(schoolId);
+
+  if (!isLevelAllowedForSchoolType(nextLevel, schoolType)) {
+    return res.status(400).json({
+      error: "This class level is not allowed for your school type.",
+      code: "INVALID_LEVEL",
+    });
+  }
+
+  if (await findDuplicateClass(schoolId, nextLevel, nextStream, id)) {
+    return res.status(409).json({
+      error: `${formatClassLabel(nextLevel, nextStream)} already exists.`,
+      code: "DUPLICATE_CLASS",
+    });
+  }
+
+  const result = await pool.query(
+    `UPDATE school_classes
+     SET level = $1,
+         stream = $2,
+         capacity = $3
+     WHERE id = $4 AND school_id = $5
+     RETURNING *`,
+    [nextLevel, nextStream, capacity === undefined ? existing.rows[0].capacity : capacity, id, schoolId],
+  );
 
   return res.json({ data: result.rows[0] });
 });
 
 classesRouter.delete("/:id", async (req: TenantRequest, res) => {
   const schoolId = req.schoolId;
-  const { id } = req.params;
+  const id = String(req.params.id);
   if (!schoolId) {
     return res.status(400).json({ error: "Missing tenant context" });
+  }
+
+  const classRow = await pool.query<{ level: string; stream: string | null }>(
+    "SELECT level, stream FROM school_classes WHERE id = $1 AND school_id = $2",
+    [id, schoolId],
+  );
+
+  if (!classRow.rowCount) {
+    return res.status(404).json({ error: "Class not found" });
   }
 
   const studentCount = await pool.query(
@@ -106,10 +162,12 @@ classesRouter.delete("/:id", async (req: TenantRequest, res) => {
     [schoolId, id],
   );
 
-  if (Number(studentCount.rows[0]?.count ?? 0) > 0) {
-    const count = Number(studentCount.rows[0]?.count ?? 0);
+  const count = Number(studentCount.rows[0]?.count ?? 0);
+  const classLabel = formatClassLabel(classRow.rows[0].level, classRow.rows[0].stream);
+
+  if (count > 0) {
     return res.status(409).json({
-      error: `Cannot delete this class. ${count} student${count === 1 ? "" : "s"} enrolled. Move them first.`,
+      error: `Cannot delete ${classLabel}. ${count} student${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} currently enrolled. Please move them first.`,
       code: "CLASS_HAS_STUDENTS",
       studentCount: count,
     });
@@ -121,7 +179,7 @@ classesRouter.delete("/:id", async (req: TenantRequest, res) => {
 
 classesRouter.post("/:id/subjects", async (req: TenantRequest, res) => {
   const schoolId = req.schoolId;
-  const { id } = req.params;
+  const id = String(req.params.id);
   const { subjectId } = req.body as { subjectId?: string };
 
   if (!schoolId || !subjectId) {
@@ -140,7 +198,8 @@ classesRouter.post("/:id/subjects", async (req: TenantRequest, res) => {
 
 classesRouter.delete("/:id/subjects/:subjectId", async (req: TenantRequest, res) => {
   const schoolId = req.schoolId;
-  const { id, subjectId } = req.params;
+  const id = String(req.params.id);
+  const subjectId = String(req.params.subjectId);
   if (!schoolId) {
     return res.status(400).json({ error: "Missing tenant context" });
   }

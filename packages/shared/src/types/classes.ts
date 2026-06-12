@@ -4,6 +4,11 @@ export interface Subject {
   created_at?: string;
 }
 
+export interface SubjectWithDetails extends Subject {
+  class_count: number;
+  class_ids: string[];
+}
+
 export interface ClassRecord {
   id: string;
   school_id?: string;

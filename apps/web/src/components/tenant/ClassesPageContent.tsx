@@ -21,7 +21,7 @@ export function ClassesPageContent() {
       title="Classes & subjects"
       description={`Organise levels, streams, and subject assignments for ${school.name ?? "your school"}.`}
     >
-      <ClassesManager schoolType={school.school_type} schoolSlug={schoolSlug} />
+      <ClassesManager schoolType={school.school_type ?? null} schoolSlug={schoolSlug} />
     </DashboardPage>
   );
 }
