@@ -9,17 +9,15 @@ import { clearSchoolSlug } from "@/lib/auth/session";
 
 const baseLinks = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/classes", label: "Classes & subjects", icon: BookOpen, exact: false },
+  { href: "/dashboard/classes", label: "Classes", icon: BookOpen, exact: false },
 ] as const;
 
-export function TenantSidebar({
-  schoolSlug,
-  schoolStatus,
+export function TenantMobileNav({
   schoolName,
+  schoolStatus,
 }: {
-  schoolSlug?: string;
-  schoolStatus?: string;
   schoolName?: string | null;
+  schoolStatus?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -27,7 +25,7 @@ export function TenantSidebar({
 
   const navLinks =
     schoolStatus === "setup"
-      ? [{ href: "/dashboard/setup", label: "Setup wizard", icon: LayoutDashboard, exact: false }]
+      ? [{ href: "/dashboard/setup", label: "Setup", icon: LayoutDashboard, exact: false }]
       : [
           ...baseLinks,
           ...(billingEnabled
@@ -43,29 +41,31 @@ export function TenantSidebar({
   }
 
   function isActive(href: string, exact: boolean) {
-    if (exact) {
-      return pathname === href;
-    }
+    if (exact) return pathname === href;
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (
-    <aside className="hidden min-h-screen w-72 shrink-0 flex-col border-r border-[#252A3A] bg-[#181C27] p-6 lg:flex">
-      <div className="mb-6 border-b border-[#252A3A] pb-6">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-20 border-b border-[#252A3A] bg-[#181C27] lg:hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#4F6EF7] text-xs font-bold text-white">
             MS
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#F0F2FA]">
-              {schoolName ?? "Your school"}
-            </p>
-            <p className="truncate text-xs text-[#8B90A7]">{schoolSlug ?? "school"}</p>
-          </div>
+          <p className="truncate text-sm font-semibold text-[#F0F2FA]">
+            {schoolName ?? "Your school"}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          className="shrink-0 rounded-lg p-2 text-[#8B90A7] transition hover:bg-[#252A3A] hover:text-[#F0F2FA]"
+          aria-label="Sign out"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
-
-      <nav className="flex flex-1 flex-col space-y-1 text-sm">
+      <nav className="flex gap-1 overflow-x-auto px-4 pb-3">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href, link.exact);
@@ -73,29 +73,18 @@ export function TenantSidebar({
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-medium transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
                 active
                   ? "bg-[#1E2A5E] text-[#4F6EF7]"
                   : "text-[#8B90A7] hover:bg-[#252A3A] hover:text-[#F0F2FA]"
               }`}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-3.5 w-3.5" />
               {link.label}
             </Link>
           );
         })}
       </nav>
-
-      <div className="mt-auto pt-6">
-        <button
-          type="button"
-          onClick={() => void handleLogout()}
-          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-[#8B90A7] transition hover:text-[#F0F2FA]"
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          Sign out
-        </button>
-      </div>
-    </aside>
+    </header>
   );
 }

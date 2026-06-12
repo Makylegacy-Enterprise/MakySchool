@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { subscriptionsEnabled } from "@makyschool/shared/constants";
 import { useTenantSchool } from "@/providers/TenantSchoolProvider";
 
 export function SubscriptionLockout() {
   const pathname = usePathname();
   const { school } = useTenantSchool();
+
+  if (!subscriptionsEnabled()) {
+    return null;
+  }
 
   if (!school || school.status === "setup") {
     return null;

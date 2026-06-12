@@ -34,3 +34,5 @@ export {
   SECONDARY_CLASS_LEVELS,
   getLevelsForSchoolType,
 } from "./classes";
+
+export { subscriptionsEnabled } from "./features";

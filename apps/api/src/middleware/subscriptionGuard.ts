@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from "@makyschool/shared/constants";
 import type { NextFunction, Response } from "express";
 import { pool } from "../db/pool.js";
 import type { TenantRequest } from "./tenant.js";
@@ -9,6 +10,10 @@ export async function requireActiveSubscription(
   res: Response,
   next: NextFunction,
 ) {
+  if (!subscriptionsEnabled()) {
+    return next();
+  }
+
   if (EXEMPT_PREFIXES.some((prefix) => req.path.startsWith(prefix))) {
     return next();
   }

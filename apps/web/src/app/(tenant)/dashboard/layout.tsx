@@ -1,8 +1,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { TenantMobileNav } from "@/components/layout/TenantMobileNav";
 import { TenantSidebar } from "@/components/layout/TenantSidebar";
 import { SubscriptionLockout } from "@/components/tenant/SubscriptionLockout";
+import { subscriptionsEnabled } from "@makyschool/shared/constants";
 import { TenantSchoolProvider } from "@/providers/TenantSchoolProvider";
 import { apiFetch } from "@/lib/api/server";
 import { getServerTenantContext } from "@/lib/tenant/server";
@@ -49,9 +51,23 @@ export default async function TenantDashboardLayout({
       school={status?.school ?? null}
       setupStatus={status}
     >
-      <DashboardShell sidebar={<TenantSidebar schoolSlug={tenant.schoolSlug} schoolStatus={status?.school?.status} />}>
-        <div className="flex-1">{children}</div>
-        <SubscriptionLockout />
+      <DashboardShell
+        sidebar={
+          <TenantSidebar
+            schoolSlug={tenant.schoolSlug}
+            schoolStatus={status?.school?.status}
+            schoolName={status?.school?.name}
+          />
+        }
+      >
+        <div className="flex min-h-screen flex-1 flex-col">
+          <TenantMobileNav
+            schoolName={status?.school?.name}
+            schoolStatus={status?.school?.status}
+          />
+          <div className="flex-1">{children}</div>
+        </div>
+        {subscriptionsEnabled() ? <SubscriptionLockout /> : null}
       </DashboardShell>
     </TenantSchoolProvider>
   );

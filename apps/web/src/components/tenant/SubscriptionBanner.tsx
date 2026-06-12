@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { subscriptionsEnabled } from "@makyschool/shared/constants";
 import { Badge } from "@/components/ui/Badge";
 import { theme } from "@/lib/theme";
 import { useTenantSchool } from "@/providers/TenantSchoolProvider";
 
 export function SubscriptionBanner() {
   const { school } = useTenantSchool();
+
+  if (!subscriptionsEnabled()) {
+    return null;
+  }
 
   if (!school || school.status === "setup") {
     return null;
