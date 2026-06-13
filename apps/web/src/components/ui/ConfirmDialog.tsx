@@ -1,6 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils/cn";
+
+type ConfirmDialogVariant = "default" | "danger" | "blocked";
 
 export function ConfirmDialog({
   open,
@@ -8,6 +11,8 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
+  variant = "default",
+  loading = false,
   onConfirm,
   onCancel,
   children,
@@ -17,7 +22,9 @@ export function ConfirmDialog({
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void;
+  variant?: ConfirmDialogVariant;
+  loading?: boolean;
+  onConfirm?: () => void | Promise<void>;
   onCancel: () => void;
   children?: ReactNode;
 }) {
@@ -25,19 +32,43 @@ export function ConfirmDialog({
     return null;
   }
 
+  const isBlocked = variant === "blocked";
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-theme-overlay px-4">
-      <div className="w-full max-w-lg rounded-3xl border border-theme bg-theme-surface p-6 shadow-theme-panel">
-        <h3 className="text-lg font-semibold text-theme-primary">{title}</h3>
+      <div
+        className="w-full max-w-lg rounded-3xl border border-theme bg-theme-surface p-6 shadow-theme-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+      >
+        <h3 id="confirm-dialog-title" className="text-lg font-semibold text-theme-primary">
+          {title}
+        </h3>
         <p className="mt-2 text-sm leading-6 text-theme-muted">{description}</p>
         {children ? <div className="mt-4">{children}</div> : null}
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onCancel} className="ms-btn-ghost rounded-xl px-4 py-2">
-            {cancelLabel}
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="ms-btn-ghost rounded-xl px-4 py-2"
+          >
+            {isBlocked ? "Close" : cancelLabel}
           </button>
-          <button type="button" onClick={onConfirm} className="ms-btn-primary rounded-xl px-4 py-2">
-            {confirmLabel}
-          </button>
+          {!isBlocked ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void onConfirm?.()}
+              className={cn(
+                "rounded-xl px-4 py-2 disabled:opacity-60",
+                variant === "danger" ? "ms-btn-danger" : "ms-btn-primary",
+              )}
+            >
+              {loading ? "Please wait…" : confirmLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import useSWR from "swr";
+import { formatClassLabel } from "@makyschool/shared/constants";
 import type { ClassWithDetails, SchoolType, SubjectWithDetails } from "@makyschool/shared/types";
 import { AssignmentsTab } from "@/components/tenant/academic/AssignmentsTab";
 import { ClassesTab } from "@/components/tenant/academic/ClassesTab";
 import { SubjectsTab } from "@/components/tenant/academic/SubjectsTab";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { apiClient } from "@/lib/api/client";
+import { parseAcademicError, type FeedbackState } from "@/lib/academic/feedback";
 
 type AcademicTab = "classes" | "subjects" | "assignments";
 
@@ -25,7 +28,9 @@ export function ClassesManager({
 }) {
   const [activeTab, setActiveTab] = useState<AcademicTab>("classes");
   const [loading, setLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackState>(null);
+
+  const dismissFeedback = useCallback(() => setFeedback(null), []);
 
   const {
     data: classesData,
@@ -52,14 +57,17 @@ export function ClassesManager({
     await Promise.all([mutateClasses(), mutateSubjects()]);
   }
 
-  async function runAction(action: () => Promise<void>) {
+  async function runAction(action: () => Promise<void>, successMessage?: string) {
     setLoading(true);
-    setActionError(null);
+    setFeedback(null);
     try {
       await action();
       await refreshAll();
+      if (successMessage) {
+        setFeedback({ tone: "success", message: successMessage });
+      }
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Something went wrong");
+      setFeedback({ tone: "error", message: parseAcademicError(error) });
       throw error;
     } finally {
       setLoading(false);
@@ -71,35 +79,38 @@ export function ClassesManager({
     stream: string | null;
     capacity: number | null;
   }) {
+    const label = formatClassLabel(values.level, values.stream);
     await runAction(async () => {
       await apiClient("/schools/classes", {
         method: "POST",
         body: values,
         schoolSlug,
       });
-    });
+    }, `${label} created successfully.`);
   }
 
   async function updateClass(
     id: string,
     values: { level: string; stream: string | null; capacity: number | null },
   ) {
+    const label = formatClassLabel(values.level, values.stream);
     await runAction(async () => {
       await apiClient(`/schools/classes/${id}`, {
         method: "PATCH",
         body: values,
         schoolSlug,
       });
-    });
+    }, `${label} updated successfully.`);
   }
 
   async function deleteClass(classRow: ClassWithDetails) {
+    const label = formatClassLabel(classRow.level, classRow.stream);
     await runAction(async () => {
       await apiClient(`/schools/classes/${classRow.id}`, {
         method: "DELETE",
         schoolSlug,
       });
-    });
+    }, `${label} deleted successfully.`);
   }
 
   async function createSubject(name: string) {
@@ -109,7 +120,7 @@ export function ClassesManager({
         body: { name },
         schoolSlug,
       });
-    });
+    }, `${name} added successfully.`);
   }
 
   async function updateSubject(id: string, name: string) {
@@ -119,7 +130,7 @@ export function ClassesManager({
         body: { name },
         schoolSlug,
       });
-    });
+    }, `${name} updated successfully.`);
   }
 
   async function deleteSubject(subject: SubjectWithDetails) {
@@ -128,10 +139,17 @@ export function ClassesManager({
         method: "DELETE",
         schoolSlug,
       });
-    });
+    }, `${subject.name} deleted successfully.`);
   }
 
   async function toggleClassSubject(classId: string, subjectId: string, linked: boolean) {
+    const classRow = classesData?.find((row) => row.id === classId);
+    const subject = subjectsData?.find((row) => row.id === subjectId);
+    const classLabel = classRow
+      ? formatClassLabel(classRow.level, classRow.stream)
+      : "class";
+    const subjectName = subject?.name ?? "Subject";
+
     await runAction(async () => {
       await apiClient(
         linked
@@ -143,17 +161,22 @@ export function ClassesManager({
           schoolSlug,
         },
       );
-    });
+    }, linked
+      ? `${subjectName} removed from ${classLabel}.`
+      : `${subjectName} linked to ${classLabel}.`);
   }
 
   async function bulkLinkSubject(subjectId: string, classIds: string[]) {
+    const subject = subjectsData?.find((row) => row.id === subjectId);
+    const subjectName = subject?.name ?? "Subject";
+
     await runAction(async () => {
       await apiClient(`/schools/subjects/${subjectId}/classes`, {
         method: "PUT",
         body: { classIds },
         schoolSlug,
       });
-    });
+    }, `${subjectName} linked to ${classIds.length} class${classIds.length === 1 ? "" : "es"}.`);
   }
 
   return (
@@ -175,8 +198,13 @@ export function ClassesManager({
         ))}
       </div>
 
-      {actionError ? (
-        <div className="alert-error rounded-lg px-4 py-3 text-sm">{actionError}</div>
+      {feedback ? (
+        <StatusBanner
+          tone={feedback.tone}
+          message={feedback.message}
+          onDismiss={dismissFeedback}
+          autoDismissMs={feedback.tone === "success" ? 5000 : undefined}
+        />
       ) : null}
 
       {activeTab === "classes" ? (

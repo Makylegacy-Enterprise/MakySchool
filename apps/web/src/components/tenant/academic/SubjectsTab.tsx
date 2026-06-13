@@ -31,6 +31,7 @@ export function SubjectsTab({
   const [editingSubject, setEditingSubject] = useState<SubjectWithDetails | null>(null);
   const [editName, setEditName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<SubjectWithDetails | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -134,9 +135,8 @@ export function SubjectsTab({
                   </button>
                   <button
                     type="button"
-                    disabled={subject.class_count > 0}
                     onClick={() => setConfirmDelete(subject)}
-                    className="ms-btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-600 disabled:opacity-40 dark:text-red-400"
+                    className="ms-btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-600 dark:text-red-400"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Delete
@@ -195,7 +195,11 @@ export function SubjectsTab({
 
       <ConfirmDialog
         open={Boolean(confirmDelete)}
-        title="Delete subject"
+        title={
+          confirmDelete && confirmDelete.class_count > 0
+            ? "Cannot delete subject"
+            : "Delete subject"
+        }
         description={
           confirmDelete
             ? confirmDelete.class_count > 0
@@ -203,16 +207,34 @@ export function SubjectsTab({
               : `Delete ${confirmDelete.name}? This cannot be undone.`
             : ""
         }
+        variant={confirmDelete && confirmDelete.class_count > 0 ? "blocked" : "danger"}
         confirmLabel="Delete subject"
+        loading={confirmLoading}
         onConfirm={() => {
-          if (confirmDelete && confirmDelete.class_count === 0) {
-            void onDelete(confirmDelete).finally(() => setConfirmDelete(null));
-          } else {
+          if (!confirmDelete || confirmDelete.class_count > 0) {
+            return;
+          }
+
+          setConfirmLoading(true);
+          void onDelete(confirmDelete)
+            .then(() => setConfirmDelete(null))
+            .catch(() => {
+              // Error feedback is shown by the parent.
+            })
+            .finally(() => setConfirmLoading(false));
+        }}
+        onCancel={() => {
+          if (!confirmLoading) {
             setConfirmDelete(null);
           }
         }}
-        onCancel={() => setConfirmDelete(null)}
-      />
+      >
+        {confirmDelete && confirmDelete.class_count > 0 ? (
+          <p className="alert-error rounded-lg px-3 py-2 text-sm">
+            Remove this subject from all classes before deleting it.
+          </p>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

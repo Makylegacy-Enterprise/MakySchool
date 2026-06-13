@@ -3,8 +3,10 @@ import { pool } from "../../db/pool.js";
 import { USER_LEARNER_ROLE_SQL } from "../../db/userSql.js";
 import type { TenantRequest } from "../../middleware/tenant.js";
 import {
+  buildLevelOrderCase,
   findDuplicateClass,
   formatClassLabel,
+  getAllowedLevelsSqlParam,
   getSchoolType,
   isLevelAllowedForSchoolType,
 } from "../../utils/classes.js";
@@ -17,12 +19,17 @@ classesRouter.get("/", async (req: TenantRequest, res) => {
     return res.status(400).json({ error: "Missing tenant context" });
   }
 
+  const schoolType = await getSchoolType(schoolId);
+  const allowedLevels = getAllowedLevelsSqlParam(schoolType);
+  const levelOrder = buildLevelOrderCase("c.level", schoolType);
+
   const result = await pool.query(
     `SELECT
        c.id,
        c.level,
        c.stream,
        c.capacity,
+       c.sort_order,
        COALESCE((
          SELECT COUNT(*)::int
          FROM users u
@@ -38,8 +45,9 @@ classesRouter.get("/", async (req: TenantRequest, res) => {
        ), '[]'::json) AS subjects
      FROM school_classes c
      WHERE c.school_id = $1
-     ORDER BY c.created_at DESC`,
-    [schoolId],
+       AND c.level = ANY($2::text[])
+     ORDER BY ${levelOrder}, COALESCE(c.sort_order, 9999), COALESCE(c.stream, ''), c.created_at ASC`,
+    [schoolId, allowedLevels],
   );
 
   return res.json({ data: result.rows });
@@ -128,7 +136,8 @@ classesRouter.patch("/:id", async (req: TenantRequest, res) => {
     `UPDATE school_classes
      SET level = $1,
          stream = $2,
-         capacity = $3
+         capacity = $3,
+         updated_at = NOW()
      WHERE id = $4 AND school_id = $5
      RETURNING *`,
     [nextLevel, nextStream, capacity === undefined ? existing.rows[0].capacity : capacity, id, schoolId],
@@ -167,14 +176,14 @@ classesRouter.delete("/:id", async (req: TenantRequest, res) => {
 
   if (count > 0) {
     return res.status(409).json({
-      error: `Cannot delete ${classLabel}. ${count} student${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} currently enrolled. Please move them first.`,
+      error: `Cannot delete ${classLabel}. ${count} student${count === 1 ? "" : "s"} are currently enrolled. Please move them first.`,
       code: "CLASS_HAS_STUDENTS",
       studentCount: count,
     });
   }
 
   await pool.query("DELETE FROM school_classes WHERE id = $1 AND school_id = $2", [id, schoolId]);
-  return res.json({ data: { ok: true } });
+  return res.json({ data: { ok: true, label: classLabel } });
 });
 
 classesRouter.post("/:id/subjects", async (req: TenantRequest, res) => {

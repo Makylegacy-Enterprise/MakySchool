@@ -30,6 +30,11 @@ export {
 } from "./school";
 
 export {
+  ACADEMIC_ERROR_CODES,
+  type AcademicErrorCode,
+} from "./academic";
+
+export {
   PRIMARY_CLASS_LEVELS,
   SECONDARY_CLASS_LEVELS,
   formatClassLabel,

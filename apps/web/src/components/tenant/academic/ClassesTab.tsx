@@ -40,6 +40,7 @@ export function ClassesTab({
   const [formOpen, setFormOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassWithDetails | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ClassWithDetails | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const groupedClasses = useMemo(
     () => (classes ? groupClassesByLevel(classes, schoolType) : []),
@@ -182,9 +183,8 @@ export function ClassesTab({
                             </button>
                             <button
                               type="button"
-                              disabled={classRow.student_count > 0}
                               onClick={() => setConfirmDelete(classRow)}
-                              className="ms-btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-600 disabled:opacity-40 dark:text-red-400"
+                              className="ms-btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-600 dark:text-red-400"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete
@@ -215,7 +215,9 @@ export function ClassesTab({
 
       <ConfirmDialog
         open={Boolean(confirmDelete)}
-        title="Delete class"
+        title={
+          confirmDelete && confirmDelete.student_count > 0 ? "Cannot delete class" : "Delete class"
+        }
         description={
           confirmDelete
             ? confirmDelete.student_count > 0
@@ -223,15 +225,27 @@ export function ClassesTab({
               : `Delete ${formatClassLabel(confirmDelete.level, confirmDelete.stream)}? This cannot be undone.`
             : ""
         }
+        variant={confirmDelete && confirmDelete.student_count > 0 ? "blocked" : "danger"}
         confirmLabel="Delete class"
+        loading={confirmLoading}
         onConfirm={() => {
-          if (confirmDelete && confirmDelete.student_count === 0) {
-            void onDelete(confirmDelete).finally(() => setConfirmDelete(null));
-          } else {
+          if (!confirmDelete || confirmDelete.student_count > 0) {
+            return;
+          }
+
+          setConfirmLoading(true);
+          void onDelete(confirmDelete)
+            .then(() => setConfirmDelete(null))
+            .catch(() => {
+              // Error feedback is shown by the parent.
+            })
+            .finally(() => setConfirmLoading(false));
+        }}
+        onCancel={() => {
+          if (!confirmLoading) {
             setConfirmDelete(null);
           }
         }}
-        onCancel={() => setConfirmDelete(null)}
       >
         {confirmDelete && confirmDelete.student_count > 0 ? (
           <p className="alert-error rounded-lg px-3 py-2 text-sm">

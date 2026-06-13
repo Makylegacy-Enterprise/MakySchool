@@ -610,6 +610,35 @@ textarea {
     color: var(--color-text-muted);
   }
 
+  .alert-success {
+    border-width: 1px;
+    border-color: color-mix(in srgb, var(--color-success-dot) 25%, transparent);
+    background-color: color-mix(in srgb, var(--color-success-dot) 8%, transparent);
+    color: var(--color-success-text);
+  }
+
+  .ms-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background-color: var(--color-danger-dot);
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: var(--color-on-accent);
+    transition: opacity 0.15s ease;
+  }
+
+  .ms-btn-danger:hover {
+    opacity: 0.92;
+  }
+
+  .ms-btn-danger:disabled {
+    opacity: 0.6;
+  }
+
   .ms-btn-auth {
     display: flex;
     width: 100%;

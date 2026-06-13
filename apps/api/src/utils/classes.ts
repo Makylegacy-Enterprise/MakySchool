@@ -18,6 +18,23 @@ export async function getSchoolType(schoolId: string): Promise<SchoolType | null
   return result.rows[0]?.school_type ?? null;
 }
 
+export function getAllowedLevelsSqlParam(schoolType: SchoolType | null): string[] {
+  return getLevelsForSchoolType(schoolType);
+}
+
+export function buildLevelOrderCase(columnRef: string, schoolType: SchoolType | null): string {
+  const levels = getLevelsForSchoolType(schoolType);
+  if (levels.length === 0) {
+    return "0";
+  }
+
+  const cases = levels
+    .map((level, index) => `WHEN ${columnRef} = '${level}' THEN ${index}`)
+    .join(" ");
+
+  return `CASE ${cases} ELSE ${levels.length} END`;
+}
+
 export async function findDuplicateClass(
   schoolId: string,
   level: string,

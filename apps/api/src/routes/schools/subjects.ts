@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../../db/pool.js";
 import type { TenantRequest } from "../../middleware/tenant.js";
+import { getAllowedLevelsSqlParam, getSchoolType } from "../../utils/classes.js";
 
 export const subjectsRouter = Router();
 
@@ -95,7 +96,8 @@ subjectsRouter.patch("/:id", async (req: TenantRequest, res) => {
 
   const result = await pool.query(
     `UPDATE school_subjects
-     SET name = $1
+     SET name = $1,
+         updated_at = NOW()
      WHERE id = $2 AND school_id = $3
      RETURNING *`,
     [name.trim(), id, schoolId],
@@ -133,14 +135,22 @@ subjectsRouter.put("/:id/classes", async (req: TenantRequest, res) => {
   const uniqueClassIds = [...new Set(classIds)];
 
   if (uniqueClassIds.length > 0) {
+    const schoolType = await getSchoolType(schoolId);
+    const allowedLevels = getAllowedLevelsSqlParam(schoolType);
+
     const validClasses = await pool.query(
       `SELECT id FROM school_classes
-       WHERE school_id = $1 AND id = ANY($2::uuid[])`,
-      [schoolId, uniqueClassIds],
+       WHERE school_id = $1
+         AND id = ANY($2::uuid[])
+         AND level = ANY($3::text[])`,
+      [schoolId, uniqueClassIds, allowedLevels],
     );
 
     if (validClasses.rowCount !== uniqueClassIds.length) {
-      return res.status(400).json({ error: "One or more classes are invalid for this school." });
+      return res.status(400).json({
+        error: "One or more classes are invalid for your school type.",
+        code: "INVALID_CLASS",
+      });
     }
   }
 
