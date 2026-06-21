@@ -40,7 +40,7 @@ export function SchoolDetail({ school, subscriptionHistory, counts, setupStatus 
     setLoading(true);
     try {
       const status = school.status === "active" ? "suspended" : "active";
-      await apiClient(`/schools/${school.id}/status`, {
+      await apiClient(`/superadmin/schools/${school.id}/status`, {
         method: "PATCH",
         body: { status },
       });
@@ -62,7 +62,7 @@ export function SchoolDetail({ school, subscriptionHistory, counts, setupStatus 
         throw new Error("Amount, term, and year are required");
       }
 
-      await apiClient(`/schools/${school.id}/subscription`, {
+      await apiClient(`/superadmin/schools/${school.id}/subscription`, {
         method: "POST",
         body: {
           amount,
@@ -87,7 +87,7 @@ export function SchoolDetail({ school, subscriptionHistory, counts, setupStatus 
       if (!schoolpayCode) {
         throw new Error("SchoolPay code is required");
       }
-      await apiClient(`/schools/${school.id}`, {
+      await apiClient(`/superadmin/schools/${school.id}`, {
         method: "PATCH",
         body: { schoolpayCode },
       });

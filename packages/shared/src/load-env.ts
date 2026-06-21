@@ -14,6 +14,7 @@ function parseValue(raw: string) {
 
 function loadFile(filePath: string, override = false) {
   const content = readFileSync(filePath, "utf8");
+  const parsed: Record<string, string> = {};
 
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
@@ -29,7 +30,13 @@ function loadFile(filePath: string, override = false) {
     const key = trimmed.slice(0, separator).trim();
     const value = parseValue(trimmed.slice(separator + 1));
 
-    if (key && (override || process.env[key] === undefined)) {
+    if (key) {
+      parsed[key] = value;
+    }
+  }
+
+  for (const [key, value] of Object.entries(parsed)) {
+    if (override || process.env[key] === undefined) {
       process.env[key] = value;
     }
   }

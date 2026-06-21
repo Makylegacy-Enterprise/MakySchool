@@ -1,6 +1,6 @@
 import { CLIENT_APP_HEADER } from "@makyschool/shared/constants";
 import type { ApiError, ApiResponse } from "@makyschool/shared/types";
-import { normalizeApiPath, resolveClientApiUrl } from "@/lib/api/base-url";
+import { resolveClientApiUrl } from "@/lib/api/base-url";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
@@ -14,7 +14,6 @@ export async function apiClient<T>(
   const { body, clientApp = "platform", headers: initHeaders, ...rest } = options;
 
   const headers = new Headers(initHeaders);
-  const normalizedPath = normalizeApiPath(path);
   const requestUrl = resolveClientApiUrl(path);
 
   headers.set(CLIENT_APP_HEADER, clientApp);

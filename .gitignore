@@ -40,3 +40,6 @@ coverage/
 # Uploads & generated files
 uploads/
 *.pdf
+
+# Local Caddy binary (scripts/ensure-caddy.sh)
+infrastructure/caddy/bin/

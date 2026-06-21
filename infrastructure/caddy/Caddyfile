@@ -1,24 +1,30 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Caddyfile>
-  # Local multi-tenant routing — map *.localhost to Next.js and inject school slug
-  {
-    auto_https off
-  }
+# MakySchool local reverse proxy (started by npm run dev via dev:caddy).
+#
+# Entry URLs (port 8080 avoids sudo on Linux):
+#   http://localhost:8080              tenant root (apps/web)
+#   http://<school-slug>.localhost:8080   tenant school
+#   http://myschool.localhost:8080     platform admin (apps/admin)
+#
+# API stays on localhost:4000 — Next.js rewrites /api/* via API_INTERNAL_URL.
 
-  :80 {
-    @tenant host *.localhost
-    handle @tenant {
-      reverse_proxy localhost:3000 {
-        header_up X-School-Slug {labels.0}
-      }
-    }
+{
+	auto_https off
+}
 
-    handle {
-      reverse_proxy localhost:3000
-    }
-  }
+:8080 {
+	@myschool host myschool.localhost
+	handle @myschool {
+		reverse_proxy localhost:3001
+	}
 
-  :4000 {
-    reverse_proxy localhost:4000
-  }
-</Caddyfile>
+	@tenant host *.localhost
+	handle @tenant {
+		reverse_proxy localhost:3000 {
+			header_up X-School-Slug {labels.0}
+		}
+	}
+
+	handle {
+		reverse_proxy localhost:3000
+	}
+}

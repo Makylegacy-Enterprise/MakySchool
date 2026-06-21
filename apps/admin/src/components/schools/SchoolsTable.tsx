@@ -81,7 +81,7 @@ const statCards = [
 export function SchoolsTable() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const path = `/schools?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`;
+  const path = `/superadmin/schools?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`;
 
   const { data, error, isLoading, isValidating, mutate } = useApiSWR<SchoolsPayload>(path);
 

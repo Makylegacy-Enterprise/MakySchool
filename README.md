@@ -215,7 +215,7 @@ Important groups:
 
 ## Local development
 
-Requirements: Node 20.9+, PostgreSQL (or Supabase project), npm.
+Requirements: Node 20.9+, PostgreSQL (or Supabase project), npm. Caddy is bundled automatically (`scripts/ensure-caddy.sh` on `npm install` / `npm run dev`).
 
 ```bash
 cp .env.example .env
@@ -227,21 +227,24 @@ npm run seed
 npm run dev
 ```
 
-`npm run dev` starts the tenant web (3000), platform admin (3001), and API (4000) via `concurrently`.
+`npm run dev` starts Caddy (:8080), tenant web (:3000), platform admin (:3001), and API (:4000). **Use Caddy as the browser entry point** — it mirrors production subdomain routing.
 
-- Tenant login: `http://localhost:3000/login`
-- Platform admin: `http://localhost:3001/login`
-- For a provisioned school on localhost, set `DEV_TENANT_SLUG` or use the school slug field on the login form.
+| URL | App |
+|-----|-----|
+| `http://localhost:8080` | Tenant web (root) |
+| `http://<school-slug>.localhost:8080` | Tenant web (school subdomain) |
+| `http://myschool.localhost:8080` | Platform admin |
 
-### Subdomain testing with Caddy
+Set `API_INTERNAL_URL=http://localhost:4000` in `.env` for local dev (never point at Render while running locally).
 
-The sample `infrastructure/caddy/Caddyfile` proxies `*.localhost` to Next.js and sets `X-School-Slug` from the subdomain label. Run Caddy alongside the dev servers if you want hostname-based tenancy without `DEV_TENANT_SLUG`.
+Direct ports (`:3000`, `:3001`) still work for debugging but skip Caddy hostname routing.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | API + tenant web + platform admin |
+| `npm run dev` | Caddy + API + tenant web + platform admin |
+| `npm run dev:caddy` | Caddy reverse proxy only (:8080) |
 | `npm run dev:admin` | Platform admin only (port 3001) |
 | `npm run dev:api` | API only |
 | `npm run dev:web` | Next.js only |

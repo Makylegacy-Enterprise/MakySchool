@@ -8,7 +8,9 @@
   ],
   "scripts": {
     "dev": "npm run dev:all",
-    "dev:all": "concurrently -k -n web,admin,api -c blue,magenta,green \"npm run dev:web\" \"npm run dev:admin\" \"npm run dev:api\"",
+    "predev": "bash scripts/ensure-caddy.sh",
+    "dev:all": "concurrently -k -n web,admin,api,caddy -c blue,magenta,green,cyan \"npm run dev:web\" \"npm run dev:admin\" \"npm run dev:api\" \"npm run dev:caddy\"",
+    "dev:caddy": "infrastructure/caddy/bin/caddy run --config infrastructure/caddy/Caddyfile",
     "dev:web": "npm run dev --workspace=@makyschool/web",
     "dev:admin": "npm run dev --workspace=@makyschool/admin",
     "dev:api": "npm run dev --workspace=@makyschool/api",
@@ -16,7 +18,8 @@
     "seed": "npm run seed --workspace=@makyschool/api",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "postinstall": "bash scripts/ensure-caddy.sh 2>/dev/null || true"
   },
   "engines": {
     "node": ">=20.9.0"

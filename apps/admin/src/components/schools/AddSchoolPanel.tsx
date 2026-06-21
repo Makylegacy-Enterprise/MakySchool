@@ -229,7 +229,7 @@ export function AddSchoolPanel({ onCreated }: { onCreated: () => void }) {
         adminEmail: String(formData.get("adminEmail") ?? "").trim(),
       };
 
-      const response = await apiClient<ProvisionResponse>("/schools", {
+      const response = await apiClient<ProvisionResponse>("/superadmin/schools", {
         method: "POST",
         body: payload,
       });
