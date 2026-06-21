@@ -15,7 +15,7 @@ import {
   verifySuperAdminToken,
   verifyTenantToken,
 } from "../../utils/auth.js";
-import { authenticateSuperAdmin, isSuperAdminEmail, platformAppUrl } from "../../utils/platformLogin.js";
+import { authenticateSuperAdmin, isSuperAdminEmail } from "../../utils/platformLogin.js";
 
 export const authRouter = Router();
 
@@ -80,11 +80,7 @@ authRouter.post("/login", async (req, res) => {
   }
 
   if (await isSuperAdminEmail(normalizedEmail)) {
-    return res.status(403).json({
-      error: "Platform administrator accounts must sign in on the platform console.",
-      code: "PLATFORM_ACCOUNT",
-      redirectUrl: `${platformAppUrl()}/login`,
-    });
+    return res.status(401).json({ error: "Invalid credentials" });
   }
 
   const userCandidates = await pool.query<{

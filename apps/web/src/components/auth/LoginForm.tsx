@@ -117,16 +117,10 @@ export function LoginForm({
       );
       router.refresh();
     } catch (submissionError) {
-      const err = submissionError as Error & { code?: string; redirectUrl?: string };
+      const err = submissionError as Error & { code?: string };
       const message = err.message ?? "Login failed";
 
-      if (err.code === "PLATFORM_ACCOUNT") {
-        const platformUrl =
-          err.redirectUrl ??
-          process.env.NEXT_PUBLIC_PLATFORM_APP_URL ??
-          "http://localhost:3001/login";
-        setError(`${message} Sign in at ${platformUrl}`);
-      } else if (err.code === "SCHOOL_SLUG_REQUIRED" || message.toLowerCase().includes("school slug")) {
+      if (err.code === "SCHOOL_SLUG_REQUIRED" || message.toLowerCase().includes("school slug")) {
         setNeedsSchoolSlug(true);
         setStep("school");
         setError("Your email is linked to multiple schools. Enter your school slug to continue.");

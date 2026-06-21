@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api/server";
 
 type SchoolDetailPayload = {
   school: Parameters<typeof SchoolDetail>[0]["school"];
+  admin: Parameters<typeof SchoolDetail>[0]["admin"];
   subscriptionHistory: Parameters<typeof SchoolDetail>[0]["subscriptionHistory"];
   counts: Parameters<typeof SchoolDetail>[0]["counts"];
   setupStatus: Parameters<typeof SchoolDetail>[0]["setupStatus"];

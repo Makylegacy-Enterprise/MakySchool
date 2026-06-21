@@ -4,6 +4,7 @@ import { Router } from "express";
 import { requireSuperAdmin } from "../../middleware/superAdminAuth.js";
 import {
   USER_ADMIN_ROLE_SQL,
+  USER_DISPLAY_NAME_SQL,
   USER_LEARNER_ROLE_SQL,
   USER_TEACHER_ROLE_SQL,
 } from "../../db/userSql.js";
@@ -173,14 +174,23 @@ superAdminSchoolsRouter.get("/:id", async (req, res) => {
       (SELECT COUNT(*)::int FROM users u WHERE u.school_id = $1 AND ${USER_LEARNER_ROLE_SQL}) AS students`,
     [id],
   );
-  const [yearResult, gradingResult] = await Promise.all([
+  const [yearResult, gradingResult, adminResult] = await Promise.all([
     pool.query("SELECT COUNT(*)::int AS count FROM academic_years WHERE school_id = $1", [id]),
     pool.query("SELECT COUNT(*)::int AS count FROM grading_scales WHERE school_id = $1", [id]),
+    pool.query<{ id: string; email: string; name: string }>(
+      `SELECT u.id, u.email, ${USER_DISPLAY_NAME_SQL} AS name
+       FROM users u
+       WHERE u.school_id = $1 AND ${USER_ADMIN_ROLE_SQL}
+       ORDER BY u.created_at ASC
+       LIMIT 1`,
+      [id],
+    ),
   ]);
 
   return res.json({
     data: {
       school,
+      admin: adminResult.rows[0] ?? null,
       subscriptionHistory: subscriptionResult.rows,
       counts: countsResult.rows[0] ?? { classes: 0, teachers: 0, students: 0 },
       setupStatus: {
@@ -223,22 +233,150 @@ superAdminSchoolsRouter.patch("/:id/status", async (req, res) => {
 
 superAdminSchoolsRouter.patch("/:id", async (req, res) => {
   const { id } = req.params;
-  const { schoolpayCode } = req.body as { schoolpayCode?: string };
+  const {
+    name,
+    slug,
+    schoolType,
+    email,
+    phone,
+    address,
+    subscriptionStatus,
+    subscriptionTerm,
+    subscriptionYear,
+    schoolpayCode,
+    adminName,
+    adminEmail,
+  } = req.body as {
+    name?: string;
+    slug?: string;
+    schoolType?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    subscriptionStatus?: "unpaid" | "active" | "expired";
+    subscriptionTerm?: string;
+    subscriptionYear?: number;
+    schoolpayCode?: string | null;
+    adminName?: string;
+    adminEmail?: string;
+  };
 
-  if (!schoolpayCode?.trim()) {
-    return res.status(400).json({ error: "SchoolPay code is required" });
+  const schoolResult = await pool.query("SELECT id FROM schools WHERE id = $1 LIMIT 1", [id]);
+  if (!schoolResult.rowCount) {
+    return res.status(404).json({ error: "School not found" });
   }
 
-  const result = await pool.query(
-    "UPDATE schools SET schoolpay_code = $1 WHERE id = $2 RETURNING id, schoolpay_code",
-    [schoolpayCode.trim(), id],
-  );
+  if (slug?.trim()) {
+    const normalizedSlug = slugifySchoolName(slug);
+    const slugConflict = await pool.query(
+      "SELECT 1 FROM schools WHERE slug = $1 AND id <> $2 LIMIT 1",
+      [normalizedSlug, id],
+    );
+    if (slugConflict.rowCount) {
+      return res.status(409).json({ error: "Another school already uses this slug" });
+    }
+  }
 
+  if (adminEmail?.trim()) {
+    const normalizedAdminEmail = adminEmail.toLowerCase().trim();
+    const emailConflict = await pool.query(
+      `SELECT 1 FROM users
+       WHERE LOWER(email) = LOWER($1) AND school_id IS NOT NULL AND school_id <> $2
+       LIMIT 1`,
+      [normalizedAdminEmail, id],
+    );
+    if (emailConflict.rowCount) {
+      return res.status(409).json({ error: "Admin email is already in use for another school" });
+    }
+  }
+
+  if (
+    subscriptionStatus &&
+    !["unpaid", "active", "expired"].includes(subscriptionStatus)
+  ) {
+    return res.status(400).json({ error: "Invalid subscription status" });
+  }
+
+  await pool.query("BEGIN");
+  try {
+    const result = await pool.query(
+      `UPDATE schools
+       SET name = COALESCE($1, name),
+           slug = COALESCE($2, slug),
+           school_type = COALESCE($3, school_type),
+           email = COALESCE($4, email),
+           phone = COALESCE($5, phone),
+           address = COALESCE($6, address),
+           subscription_status = COALESCE($7, subscription_status),
+           subscription_term = COALESCE($8, subscription_term),
+           subscription_year = COALESCE($9, subscription_year),
+           schoolpay_code = CASE WHEN $10::boolean THEN $11 ELSE schoolpay_code END
+       WHERE id = $12
+       RETURNING *`,
+      [
+        name?.trim() || null,
+        slug?.trim() ? slugifySchoolName(slug) : null,
+        schoolType?.trim() || null,
+        email?.trim() || null,
+        phone?.trim() || null,
+        address?.trim() || null,
+        subscriptionStatus ?? null,
+        subscriptionTerm?.trim() || null,
+        subscriptionYear ?? null,
+        schoolpayCode !== undefined,
+        schoolpayCode?.trim() || null,
+        id,
+      ],
+    );
+
+    if (adminName?.trim() || adminEmail?.trim()) {
+      await pool.query(
+        `UPDATE users u
+         SET name = COALESCE($1, u.name),
+             full_name = COALESCE($1, u.full_name),
+             email = COALESCE($2, u.email)
+         WHERE u.school_id = $3 AND ${USER_ADMIN_ROLE_SQL}`,
+        [adminName?.trim() || null, adminEmail?.trim().toLowerCase() || null, id],
+      );
+    }
+
+    await pool.query("COMMIT");
+
+    const adminResult = await pool.query<{ id: string; email: string; name: string }>(
+      `SELECT u.id, u.email, ${USER_DISPLAY_NAME_SQL} AS name
+       FROM users u
+       WHERE u.school_id = $1 AND ${USER_ADMIN_ROLE_SQL}
+       ORDER BY u.created_at ASC
+       LIMIT 1`,
+      [id],
+    );
+
+    return res.json({
+      data: {
+        school: result.rows[0],
+        admin: adminResult.rows[0] ?? null,
+      },
+    });
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
+  }
+});
+
+superAdminSchoolsRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const result = await pool.query("DELETE FROM schools WHERE id = $1 RETURNING id, name", [id]);
   if (!result.rowCount) {
     return res.status(404).json({ error: "School not found" });
   }
 
-  return res.json({ data: result.rows[0] });
+  return res.json({
+    data: {
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+    },
+  });
 });
 
 superAdminSchoolsRouter.post("/:id/subscription", async (req, res) => {

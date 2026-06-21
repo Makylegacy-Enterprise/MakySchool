@@ -218,12 +218,14 @@ export function SchoolsTable() {
                         {new Date(school.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <Link
-                          href={`/schools/${school.id}`}
-                          className="text-xs text-theme-accent hover:underline"
-                        >
-                          View
-                        </Link>
+                        <div className="flex items-center justify-end gap-3">
+                          <Link
+                            href={`/schools/${school.id}`}
+                            className="text-xs font-medium text-theme-accent hover:underline"
+                          >
+                            Manage
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
