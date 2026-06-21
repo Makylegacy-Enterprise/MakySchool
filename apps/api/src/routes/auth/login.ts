@@ -15,7 +15,7 @@ import {
   verifySuperAdminToken,
   verifyTenantToken,
 } from "../../utils/auth.js";
-import { authenticateSuperAdmin, isSuperAdminEmail } from "../../utils/platformLogin.js";
+import { authenticateSuperAdmin, isSuperAdminEmail, platformAppUrl } from "../../utils/platformLogin.js";
 
 export const authRouter = Router();
 
@@ -30,10 +30,6 @@ type SchoolRow = {
 function resolveClientApp(req: import("express").Request): ClientAppKind {
   const header = req.header(CLIENT_APP_HEADER)?.trim().toLowerCase();
   return header === "platform" ? "platform" : "tenant";
-}
-
-function platformAppUrl() {
-  return (process.env.PLATFORM_APP_URL ?? "http://localhost:3001").replace(/\/$/, "");
 }
 
 function resolveSchoolRedirectPath(

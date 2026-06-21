@@ -8,9 +8,12 @@ import {
   signSuperAdminToken,
 } from "./auth.js";
 
+export function platformAppUrl() {
+  return (process.env.PLATFORM_APP_URL ?? "http://localhost:3001").replace(/\/$/, "");
+}
+
 export function platformDashboardUrl() {
-  const base = (process.env.PLATFORM_APP_URL ?? "http://localhost:3001").replace(/\/$/, "");
-  return `${base}/dashboard`;
+  return `${platformAppUrl()}/dashboard`;
 }
 
 export async function authenticateSuperAdmin(
@@ -63,7 +66,7 @@ export async function authenticateSuperAdmin(
     data: {
       accountType: "platform" as const,
       role: "super_admin" as const,
-      redirectTo: platformDashboardUrl(),
+      redirectTo: "/dashboard",
       user: {
         id: superAdmin.id,
         email: superAdmin.email,

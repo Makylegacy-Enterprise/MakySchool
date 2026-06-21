@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { ThemeToggle } from "@makyschool/ui/components/ui/ThemeToggle";
 import { apiClient } from "@/lib/api/client";
 
@@ -20,6 +20,7 @@ export function PlatformLoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -40,13 +41,13 @@ export function PlatformLoginForm() {
     setLoading(true);
 
     try {
-      const response = await apiClient<LoginResponse>("/superadmin/auth/login", {
+      await apiClient<LoginResponse>("/superadmin/auth/login", {
         method: "POST",
         body: { email: email.trim(), password },
         clientApp: "platform",
       });
 
-      router.push(response.data.redirectTo ?? "/dashboard");
+      router.push("/dashboard");
       router.refresh();
     } catch (submissionError) {
       const err = submissionError as Error;
@@ -85,7 +86,7 @@ export function PlatformLoginForm() {
                   onChange={(event) => setEmail(event.target.value)}
                   autoComplete="email"
                   className="ms-input w-full pl-10"
-                  placeholder="admin@makyschool.com"
+                  placeholder="Enter your email"
                 />
               </div>
             </label>
@@ -95,12 +96,22 @@ export function PlatformLoginForm() {
               <div className="relative">
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-faint" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="current-password"
-                  className="ms-input w-full pl-10"
+                  className="ms-input w-full py-2.5 pl-10 pr-10"
+                  placeholder="Enter your password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-faint transition hover:text-theme-muted"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </label>
 
