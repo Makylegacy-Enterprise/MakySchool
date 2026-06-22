@@ -42,6 +42,13 @@ export const schoolAdminNav: NavItem[] = [
     requiredAction: "viewAllStaff",
   },
   {
+    href: "/dashboard/students",
+    label: "Students",
+    icon: Users,
+    exact: false,
+    requiredAction: "viewAllClasses",
+  },
+  {
     href: "/dashboard/subjects",
     label: "Subjects",
     icon: Layers,
