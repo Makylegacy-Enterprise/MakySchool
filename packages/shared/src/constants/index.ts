@@ -16,6 +16,7 @@ export const USER_ROLES = {
   ADMIN: "admin",
   HEAD_TEACHER: "head_teacher",
   TEACHER: "teacher",
+  BURSAR: "bursar",
   LEARNER: "learner",
 } as const;
 

@@ -1,9 +1,10 @@
-export type MakySchoolRole = "admin" | "head_teacher" | "teacher" | "learner";
+export type MakySchoolRole = "admin" | "head_teacher" | "teacher" | "bursar" | "learner";
 
 export const MAKY_SCHOOL_ROLES: readonly MakySchoolRole[] = [
   "admin",
   "head_teacher",
   "teacher",
+  "bursar",
   "learner",
 ];
 

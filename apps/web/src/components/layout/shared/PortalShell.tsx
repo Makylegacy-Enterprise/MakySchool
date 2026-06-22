@@ -5,12 +5,13 @@ import type { UserRole } from "@makyschool/shared/types";
 import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 import { PortalMobileNav, PortalSidebar } from "@/components/layout/shared/PortalNav";
 import { DashboardShell } from "@makyschool/ui/components/layout/DashboardShell";
-import { learnerNav, teacherNav } from "@/lib/roles";
+import { learnerNav, teacherNav, bursarNav } from "@/lib/roles";
 import type { PortalNavItem } from "@/lib/roles/portal-nav";
 
 const navByPortal = {
   teacher: teacherNav,
   learner: learnerNav,
+  bursar: bursarNav,
 } as const satisfies Record<string, PortalNavItem[]>;
 
 export function PortalShell({

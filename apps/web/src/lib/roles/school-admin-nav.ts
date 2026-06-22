@@ -49,6 +49,13 @@ export const schoolAdminNav: NavItem[] = [
     requiredAction: "viewAllClasses",
   },
   {
+    href: "/dashboard/fees",
+    label: "Fees",
+    icon: Banknote,
+    exact: false,
+    requiredAction: "viewFees",
+  },
+  {
     href: "/dashboard/subjects",
     label: "Subjects",
     icon: Layers,

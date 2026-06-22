@@ -2,6 +2,7 @@ export {
   homePathForPortal,
   isSchoolAdminRole,
   LEARNER_ROLES,
+  BURSAR_ROLES,
   portalForRole,
   roleHasPortalAccess,
   SCHOOL_ADMIN_ROLES,
@@ -18,3 +19,4 @@ export {
 } from "./school-admin-nav";
 export { teacherNav } from "./teacher-nav";
 export { learnerNav } from "./learner-nav";
+export { bursarNav } from "./bursar-nav";

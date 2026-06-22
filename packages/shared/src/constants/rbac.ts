@@ -7,6 +7,7 @@ export const ROLE_HOME: Record<MakySchoolRole, string> = {
   admin: "/dashboard",
   head_teacher: "/dashboard",
   teacher: "/teacher/dashboard",
+  bursar: "/bursar/dashboard",
   learner: "/learner/dashboard",
 };
 
@@ -21,6 +22,12 @@ export const CAN = {
   enterMarks: ["admin", "head_teacher", "teacher"],
   viewOwnClasses: ["admin", "head_teacher", "teacher"],
   viewFinance: ["admin"],
+  viewFees: ["admin", "head_teacher", "bursar"],
+  manageFees: ["admin", "bursar"],
+  recordPayments: ["admin", "bursar"],
+  voidPayments: ["admin"],
+  waiveFees: ["admin"],
+  viewReports: ["admin", "head_teacher", "bursar"],
 } as const satisfies Record<string, MakySchoolRole[]>;
 
 export type PermissionAction = keyof typeof CAN;

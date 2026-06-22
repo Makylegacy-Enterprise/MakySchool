@@ -9,6 +9,9 @@ import { ThemeToggle } from "@makyschool/ui/components/ui/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 
 function searchPlaceholderForPath(pathname: string) {
+  if (pathname.startsWith("/bursar")) {
+    return "Search students or receipts…";
+  }
   if (pathname.startsWith("/teacher")) {
     return "Search your classes…";
   }
@@ -19,7 +22,11 @@ function searchPlaceholderForPath(pathname: string) {
 }
 
 function isPortalPath(pathname: string) {
-  return pathname.startsWith("/teacher") || pathname.startsWith("/learner");
+  return (
+    pathname.startsWith("/teacher") ||
+    pathname.startsWith("/learner") ||
+    pathname.startsWith("/bursar")
+  );
 }
 
 type TopBarAction = {

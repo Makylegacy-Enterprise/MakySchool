@@ -8,6 +8,8 @@ export function roleBadgeClass(role: MakySchoolRole | string) {
       return "badge-role-ht";
     case "teacher":
       return "badge-role-teacher";
+    case "bursar":
+      return "badge-role-bursar";
     default:
       return "badge-info";
   }
@@ -21,6 +23,8 @@ export function roleLabel(role: MakySchoolRole | string) {
       return "Head Teacher";
     case "teacher":
       return "Teacher";
+    case "bursar":
+      return "Bursar";
     case "learner":
       return "Learner";
     default:

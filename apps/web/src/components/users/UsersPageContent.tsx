@@ -31,11 +31,12 @@ type UserRow = {
   }>;
 };
 
-type Tab = "all" | "head_teacher" | "teacher";
+type Tab = "all" | "head_teacher" | "teacher" | "bursar";
 
 const TAB_EMPTY: Record<Exclude<Tab, "all">, string> = {
   head_teacher: "No head teachers yet. Add one to get started.",
   teacher: "No teachers yet. Add one to get started.",
+  bursar: "No bursars yet. Add one to manage school fees.",
 };
 
 export function UsersPageContent() {
@@ -80,6 +81,7 @@ export function UsersPageContent() {
             ["all", "All"],
             ["head_teacher", "Head Teachers"],
             ["teacher", "Teachers"],
+            ["bursar", "Bursars"],
           ] as const
         ).map(([key, label]) => (
           <button

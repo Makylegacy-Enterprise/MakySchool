@@ -17,7 +17,7 @@ export const usersRouter = Router();
 
 type ClassAssignmentInput = AssignmentInput;
 
-const CREATABLE_ROLES: MakySchoolRole[] = ["head_teacher", "teacher", "learner"];
+const CREATABLE_ROLES: MakySchoolRole[] = ["head_teacher", "teacher", "bursar", "learner"];
 const ASSIGNABLE_ROLES: MakySchoolRole[] = ["head_teacher", "teacher"];
 
 function stripSensitive<T extends Record<string, unknown>>(row: T) {

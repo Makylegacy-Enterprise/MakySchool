@@ -42,10 +42,12 @@ export function AddUserPanel({
   open,
   onClose,
   onSaved,
+  defaultRole = "teacher",
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  defaultRole?: MakySchoolRole;
 }) {
   const { data: classes } = useApiSWR<ClassRow[]>(open ? "/schools/classes" : null);
   const [fullName, setFullName] = useState("");
@@ -63,15 +65,17 @@ export function AddUserPanel({
     if (!open) {
       setFullName("");
       setEmail("");
-      setRole("teacher");
+      setRole(defaultRole);
       setPhone("");
       setSubjectSpecialization("");
       setSelectedClasses(new Set());
       setClassSubjects({});
       setError(null);
       setSuccess(null);
+    } else {
+      setRole(defaultRole);
     }
-  }, [open]);
+  }, [open, defaultRole]);
 
   const showAssignments = role === "teacher" || role === "head_teacher";
 
@@ -223,8 +227,15 @@ export function AddUserPanel({
             >
               <option value="head_teacher">Head Teacher</option>
               <option value="teacher">Teacher</option>
+              <option value="bursar">Bursar</option>
             </select>
           </label>
+
+          {role === "bursar" ? (
+            <p className="rounded-lg border border-theme bg-theme-surface-raised px-3 py-2 text-sm text-theme-muted">
+              Bursars only have access to the fees module. No class assignments needed.
+            </p>
+          ) : null}
 
           <label className="block">
             <span className="mb-2 block text-xs font-medium text-theme-muted">Phone number (optional)</span>

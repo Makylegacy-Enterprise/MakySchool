@@ -7,6 +7,7 @@ import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { EditStudentPanel } from "@/components/school-admin/students/EditStudentPanel";
 import { ReinstateStudentDialog } from "@/components/school-admin/students/ReinstateStudentDialog";
 import { StudentTableSkeleton } from "@/components/school-admin/students/StudentRowSkeleton";
+import { StudentFeesTab } from "@/components/fees/StudentFeesTab";
 import { TransferClassDialog } from "@/components/school-admin/students/TransferClassDialog";
 import { WithdrawStudentDialog } from "@/components/school-admin/students/WithdrawStudentDialog";
 import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
@@ -267,13 +268,7 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
                 </div>
               ) : null}
 
-              {tab === "fees" ? (
-                <div className="rounded-xl border border-dashed border-theme bg-theme-surface p-6">
-                  <p className="text-sm text-theme-muted">
-                    TODO: Awongo — fee payment history will appear here
-                  </p>
-                </div>
-              ) : null}
+              {tab === "fees" ? <StudentFeesTab studentId={student.id} /> : null}
             </>
           );
         }}

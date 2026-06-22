@@ -39,6 +39,8 @@ function portalPathPrefix(portal: ReturnType<typeof portalForRole>) {
       return "/teacher";
     case "learner":
       return "/learner";
+    case "bursar":
+      return "/bursar";
   }
 }
 
@@ -67,6 +69,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/teacher") ||
     pathname.startsWith("/learner") ||
+    pathname.startsWith("/bursar") ||
     pathname.startsWith("/auth/change-password");
 
   if (isProtected) {
@@ -102,6 +105,20 @@ export async function middleware(request: NextRequest) {
 
       if (pathname.startsWith("/learner") && portal !== "learner") {
         return NextResponse.redirect(new URL(roleHome, request.url));
+      }
+
+      if (pathname.startsWith("/bursar") && portal !== "bursar") {
+        return NextResponse.redirect(new URL(roleHome, request.url));
+      }
+
+      if (
+        tenantPayload.role === USER_ROLES.BURSAR &&
+        (pathname.startsWith("/dashboard") ||
+          pathname.startsWith("/teacher") ||
+          pathname.startsWith("/learner")) &&
+        !pathname.startsWith("/auth/change-password")
+      ) {
+        return NextResponse.redirect(new URL("/bursar/dashboard", request.url));
       }
 
       if (

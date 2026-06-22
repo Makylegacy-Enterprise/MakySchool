@@ -49,6 +49,19 @@
   --color-role-ht-text:   #6B21A8;
   --color-role-teacher-bg: #CCFBF1;
   --color-role-teacher-text: #0F766E;
+  --color-role-bursar-bg: #F0FDF4;
+  --color-role-bursar-text: #065F46;
+
+  --color-bursar-bg: #F0FDF4;
+  --color-bursar-text: #065F46;
+  --color-paid-bg: #ECFDF5;
+  --color-paid-text: #065F46;
+  --color-partial-bg: #FFFBEB;
+  --color-partial-text: #92400E;
+  --color-unpaid-bg: #FEF2F2;
+  --color-unpaid-text: #991B1B;
+  --color-waived-bg: #F3F4F6;
+  --color-waived-text: #6B7280;
 
   --color-input-bg:     #FFFFFF;
   --color-input-border: #D1D5DB;
@@ -147,7 +160,18 @@
   --color-warning-text: #FCD34D;
   --color-warning-dot:  #FCD34D;
 
-  --color-input-bg:     #0F1117;
+  --color-role-bursar-bg: #0D2E1F;
+  --color-role-bursar-text: #34D399;
+  --color-bursar-bg: #0D2E1F;
+  --color-bursar-text: #34D399;
+  --color-paid-bg: #0D2E1F;
+  --color-paid-text: #34D399;
+  --color-partial-bg: #2D1F00;
+  --color-partial-text: #FCD34D;
+  --color-unpaid-bg: #2E1515;
+  --color-unpaid-text: #F87171;
+  --color-waived-bg: #1F2937;
+  --color-waived-text: #6B7280;
   --color-input-border: #252A3A;
   --color-input-focus:  #4F6EF7;
   --color-input-placeholder: #3D4357;
@@ -515,6 +539,11 @@ textarea {
   .badge-danger  { background-color: var(--color-danger-bg);  color: var(--color-danger-text); }
   .badge-role-ht { background-color: var(--color-role-ht-bg); color: var(--color-role-ht-text); }
   .badge-role-teacher { background-color: var(--color-role-teacher-bg); color: var(--color-role-teacher-text); }
+  .badge-role-bursar { background-color: var(--color-role-bursar-bg); color: var(--color-role-bursar-text); }
+  .badge-paid    { background-color: var(--color-paid-bg);    color: var(--color-paid-text);    }
+  .badge-partial { background-color: var(--color-partial-bg); color: var(--color-partial-text); }
+  .badge-unpaid  { background-color: var(--color-unpaid-bg);  color: var(--color-unpaid-text);  }
+  .badge-waived  { background-color: var(--color-waived-bg);  color: var(--color-waived-text);  }
   .badge-warning { background-color: var(--color-warning-bg); color: var(--color-warning-text); }
 
   .bg-nav-active       { background-color: var(--color-nav-active-bg); }

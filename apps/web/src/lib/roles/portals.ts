@@ -1,7 +1,7 @@
 import { USER_ROLES } from "@makyschool/shared/constants";
 import type { UserRole } from "@makyschool/shared/types";
 
-export type Portal = "school-admin" | "teacher" | "learner";
+export type Portal = "school-admin" | "teacher" | "learner" | "bursar";
 
 export const SCHOOL_ADMIN_ROLES: readonly UserRole[] = [
   USER_ROLES.ADMIN,
@@ -12,12 +12,17 @@ export const TEACHER_ROLES: readonly UserRole[] = [USER_ROLES.TEACHER];
 
 export const LEARNER_ROLES: readonly UserRole[] = [USER_ROLES.LEARNER];
 
+export const BURSAR_ROLES: readonly UserRole[] = [USER_ROLES.BURSAR];
+
 export function portalForRole(role: UserRole): Portal {
   if (SCHOOL_ADMIN_ROLES.includes(role)) {
     return "school-admin";
   }
   if (TEACHER_ROLES.includes(role)) {
     return "teacher";
+  }
+  if (BURSAR_ROLES.includes(role)) {
+    return "bursar";
   }
   return "learner";
 }
@@ -28,6 +33,8 @@ export function homePathForPortal(portal: Portal): string {
       return "/dashboard";
     case "teacher":
       return "/teacher/dashboard";
+    case "bursar":
+      return "/bursar/dashboard";
     case "learner":
       return "/learner/dashboard";
   }
