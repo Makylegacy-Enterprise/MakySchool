@@ -10,6 +10,7 @@
    ============================================================ */
 
 :root {
+  color-scheme: light;
   --color-bg:           #F4F6FA;
   --color-surface:      #FFFFFF;
   --color-surface-raised: #F0F2F8;
@@ -125,6 +126,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --color-bg:           #0F1117;
   --color-surface:      #181C27;
   --color-surface-raised: #1E2330;
@@ -172,9 +174,16 @@
   --color-unpaid-text: #F87171;
   --color-waived-bg: #1F2937;
   --color-waived-text: #6B7280;
+
+  --color-role-ht-bg: #2D1F4E;
+  --color-role-ht-text: #C4B5FD;
+  --color-role-teacher-bg: #0D2E2A;
+  --color-role-teacher-text: #5EEAD4;
+
+  --color-input-bg: #1A1F2E;
   --color-input-border: #252A3A;
   --color-input-focus:  #4F6EF7;
-  --color-input-placeholder: #3D4357;
+  --color-input-placeholder: #6B7280;
 
   --color-sidebar-bg:   #181C27;
   --color-sidebar-border: #252A3A;
@@ -578,10 +587,65 @@ textarea {
     background-color: var(--color-surface);
   }
 
+  .ms-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .ms-table thead {
+    background-color: var(--color-table-header-bg);
+  }
+
+  .ms-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-table-border);
+    white-space: nowrap;
+  }
+
+  .ms-table td {
+    padding: 0.875rem 1rem;
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-border-muted);
+    vertical-align: middle;
+  }
+
+  .ms-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .ms-table tbody tr {
+    transition: background-color 0.12s ease;
+  }
+
+  .ms-table tbody tr:hover {
+    background-color: var(--color-table-row-hover);
+  }
+
+  .ms-table-compact th,
+  .ms-table-compact td {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .ms-table-numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
   .ms-input {
     width: 100%;
     border-radius: 0.5rem;
     border-width: 1px;
+    border-style: solid;
     border-color: var(--color-input-border);
     background-color: var(--color-input-bg);
     padding: 0.625rem 1rem;
@@ -589,20 +653,60 @@ textarea {
     line-height: 1.25rem;
     color: var(--color-text-primary);
     outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   }
 
   .ms-input::placeholder {
     color: var(--color-input-placeholder);
   }
 
+  .ms-input:hover:not(:disabled):not(:focus) {
+    border-color: var(--color-border-strong);
+  }
+
   .ms-input:focus {
     border-color: var(--color-input-focus);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
+  .ms-input:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    background-color: color-mix(in srgb, var(--color-input-bg) 70%, var(--color-border-muted));
+  }
+
+  .ms-input:-webkit-autofill,
+  .ms-input:-webkit-autofill:hover,
+  .ms-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-text-primary);
+    -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
+    box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
+    transition: background-color 9999s ease-out 0s;
+  }
+
+  select.ms-input {
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+      linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) calc(50% + 1px),
+      calc(100% - 12px) calc(50% + 1px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 2.25rem;
+  }
+
+  textarea.ms-input {
+    min-height: 5rem;
+    resize: vertical;
   }
 
   .ms-select {
+    width: 100%;
     border-radius: 0.5rem;
     border-width: 1px;
+    border-style: solid;
     border-color: var(--color-input-border);
     background-color: var(--color-input-bg);
     padding: 0.625rem 1rem;
@@ -610,11 +714,16 @@ textarea {
     line-height: 1.25rem;
     color: var(--color-text-primary);
     outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .ms-select:hover:not(:disabled):not(:focus) {
+    border-color: var(--color-border-strong);
   }
 
   .ms-select:focus {
     border-color: var(--color-input-focus);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
   }
 
   .ms-btn-primary {
