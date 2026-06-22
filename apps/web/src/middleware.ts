@@ -3,6 +3,7 @@ import {
   TENANT_HEADERS,
   TENANT_REFRESH_COOKIE,
 } from "@makyschool/shared/constants";
+import { USER_ROLES } from "@makyschool/shared/constants";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getTenantPayloadFromRequest } from "@/lib/auth/verify-tenant-token";
@@ -15,6 +16,7 @@ import {
 import { extractSchoolSlug } from "@/lib/tenant/extract-school-slug";
 
 const SETUP_PATH = "/dashboard/setup";
+const AUTH_PUBLIC_PATHS = ["/login", "/auth/forgot-password", "/auth/reset-password"];
 
 function clearTenantCookies(response: NextResponse) {
   response.cookies.delete(TENANT_ACCESS_COOKIE);
@@ -103,7 +105,15 @@ export async function middleware(request: NextRequest) {
       }
 
       if (
-        isSchoolAdminRole(tenantPayload.role) &&
+        tenantPayload.role === USER_ROLES.LEARNER &&
+        !pathname.startsWith("/learner") &&
+        !pathname.startsWith("/auth/change-password")
+      ) {
+        return NextResponse.redirect(new URL(roleHome, request.url));
+      }
+
+      if (
+        tenantPayload.role === USER_ROLES.ADMIN &&
         !setupCompleted &&
         pathname.startsWith("/dashboard") &&
         pathname !== SETUP_PATH
@@ -117,7 +127,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname === "/login" && tenantPayload) {
+  if (AUTH_PUBLIC_PATHS.includes(pathname) && tenantPayload) {
     return NextResponse.redirect(
       new URL(
         resolvePostLoginPath({
@@ -145,6 +155,11 @@ export async function middleware(request: NextRequest) {
 
   if (tenantPayload?.schoolId) {
     requestHeaders.set(TENANT_HEADERS.SCHOOL_ID, tenantPayload.schoolId);
+  }
+
+  if (tenantPayload) {
+    requestHeaders.set("x-user-role", tenantPayload.role);
+    requestHeaders.set("x-user-id", tenantPayload.sub);
   }
 
   if (pathname === SETUP_PATH || pathname.startsWith(`${SETUP_PATH}/`)) {

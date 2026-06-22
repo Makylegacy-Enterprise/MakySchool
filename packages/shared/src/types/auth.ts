@@ -1,4 +1,4 @@
-import type { UserRole } from "./index";
+import type { MakySchoolRole } from "./rbac";
 
 export interface SuperAdmin {
   id: string;
@@ -10,25 +10,29 @@ export interface SuperAdmin {
 export interface SuperAdminJwtPayload {
   sub: string;
   email: string;
-  name: string;
-  role: "super_admin";
+  name?: string;
+  role?: "super_admin";
+  iat?: number;
+  exp?: number;
 }
 
 export interface TenantJwtPayload {
   sub: string;
-  email: string;
-  name: string;
-  role: UserRole;
   schoolId: string;
   schoolSlug: string;
+  role: MakySchoolRole;
+  email?: string;
+  name?: string;
   mustChangePassword?: boolean;
   setupCompleted?: boolean;
+  iat?: number;
+  exp?: number;
 }
 
 export interface TenantUser {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  role: MakySchoolRole;
   school_id: string;
 }

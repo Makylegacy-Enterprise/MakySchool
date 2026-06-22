@@ -16,7 +16,7 @@ export function resolvePostLoginPath({
     return "/auth/change-password";
   }
 
-  if (isSchoolAdminRole(role) && !setupCompleted) {
+  if (isSchoolAdminRole(role) && role === "admin" && !setupCompleted) {
     return "/dashboard/setup";
   }
 

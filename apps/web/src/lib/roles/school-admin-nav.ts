@@ -1,6 +1,13 @@
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, CreditCard, LayoutDashboard, Settings2 } from "lucide-react";
-import { USER_ROLES } from "@makyschool/shared/constants";
+import {
+  Banknote,
+  BookOpen,
+  LayoutDashboard,
+  Layers,
+  Settings,
+  Users,
+} from "lucide-react";
+import { can, type PermissionAction } from "@makyschool/shared/constants";
 import type { UserRole } from "@makyschool/shared/types";
 
 export type NavItem = {
@@ -8,11 +15,8 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   exact: boolean;
-  roles: readonly UserRole[];
+  requiredAction: PermissionAction | null;
 };
-
-const allSchoolAdminRoles = [USER_ROLES.ADMIN, USER_ROLES.HEAD_TEACHER] as const;
-const adminOnly = [USER_ROLES.ADMIN] as const;
 
 export const schoolAdminNav: NavItem[] = [
   {
@@ -20,28 +24,42 @@ export const schoolAdminNav: NavItem[] = [
     label: "Dashboard",
     icon: LayoutDashboard,
     exact: true,
-    roles: allSchoolAdminRoles,
+    requiredAction: null,
   },
   {
     href: "/dashboard/classes",
-    label: "Classes & subjects",
+    label: "Classes",
     icon: BookOpen,
     exact: false,
-    roles: allSchoolAdminRoles,
+    requiredAction: "viewAllClasses",
   },
   {
-    href: "/dashboard/settings",
-    label: "School settings",
-    icon: Settings2,
+    href: "/dashboard/subjects",
+    label: "Subjects",
+    icon: Layers,
     exact: false,
-    roles: adminOnly,
+    requiredAction: "viewAllClasses",
+  },
+  {
+    href: "/dashboard/users",
+    label: "Users",
+    icon: Users,
+    exact: false,
+    requiredAction: "viewAllStaff",
   },
   {
     href: "/dashboard/billing",
-    label: "Billing",
-    icon: CreditCard,
+    label: "Finance",
+    icon: Banknote,
     exact: false,
-    roles: adminOnly,
+    requiredAction: "viewFinance",
+  },
+  {
+    href: "/dashboard/settings",
+    label: "Settings",
+    icon: Settings,
+    exact: false,
+    requiredAction: "manageSchool",
   },
 ];
 
@@ -51,10 +69,15 @@ export const schoolAdminSetupNav: NavItem[] = [
     label: "Setup wizard",
     icon: LayoutDashboard,
     exact: false,
-    roles: allSchoolAdminRoles,
+    requiredAction: null,
   },
 ];
 
 export function filterNavByRole(items: NavItem[], role: UserRole): NavItem[] {
-  return items.filter((item) => item.roles.includes(role));
+  return items.filter((item) => {
+    if (!item.requiredAction) {
+      return true;
+    }
+    return can(role, item.requiredAction);
+  });
 }

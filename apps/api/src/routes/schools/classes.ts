@@ -3,6 +3,11 @@ import { pool } from "../../db/pool.js";
 import { USER_LEARNER_ROLE_SQL } from "../../db/userSql.js";
 import type { TenantRequest } from "../../middleware/tenant.js";
 import {
+  assertClassAccess,
+  teacherScope,
+  type TeacherScopedRequest,
+} from "../../middleware/teacherScope.js";
+import {
   buildLevelOrderCase,
   findDuplicateClass,
   formatClassLabel,
@@ -13,7 +18,9 @@ import {
 
 export const classesRouter = Router();
 
-classesRouter.get("/", async (req: TenantRequest, res) => {
+classesRouter.use(teacherScope);
+
+classesRouter.get("/", async (req: TeacherScopedRequest, res) => {
   const schoolId = req.schoolId;
   if (!schoolId) {
     return res.status(400).json({ error: "Missing tenant context" });
@@ -22,6 +29,18 @@ classesRouter.get("/", async (req: TenantRequest, res) => {
   const schoolType = await getSchoolType(schoolId);
   const allowedLevels = getAllowedLevelsSqlParam(schoolType);
   const levelOrder = buildLevelOrderCase("c.level", schoolType);
+
+  const classFilter =
+    req.allowedClassIds == null
+      ? ""
+      : (req.allowedClassIds?.length ?? 0) === 0
+        ? " AND FALSE"
+        : ` AND c.id = ANY($3::uuid[])`;
+
+  const queryParams: unknown[] = [schoolId, allowedLevels];
+  if (req.allowedClassIds != null) {
+    queryParams.push(req.allowedClassIds);
+  }
 
   const result = await pool.query(
     `SELECT
@@ -45,12 +64,103 @@ classesRouter.get("/", async (req: TenantRequest, res) => {
        ), '[]'::json) AS subjects
      FROM school_classes c
      WHERE c.school_id = $1
-       AND c.level = ANY($2::text[])
+       AND c.level = ANY($2::text[])${classFilter}
      ORDER BY ${levelOrder}, COALESCE(c.sort_order, 9999), COALESCE(c.stream, ''), c.created_at ASC`,
-    [schoolId, allowedLevels],
+    queryParams,
   );
 
   return res.json({ data: result.rows });
+});
+
+classesRouter.get("/:id", async (req: TeacherScopedRequest, res) => {
+  const schoolId = req.schoolId;
+  const id = String(req.params.id);
+
+  if (!schoolId) {
+    return res.status(400).json({ error: "Missing tenant context" });
+  }
+
+  if (!assertClassAccess(req, id)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const result = await pool.query(
+    `SELECT
+       c.id,
+       c.level,
+       c.stream,
+       c.capacity,
+       COALESCE((
+         SELECT COUNT(*)::int
+         FROM users u
+         WHERE u.school_id = c.school_id
+           AND ${USER_LEARNER_ROLE_SQL}
+           AND u.school_class_id = c.id
+       ), 0) AS student_count,
+       COALESCE((
+         SELECT json_agg(json_build_object('id', s.id, 'name', s.name))
+         FROM school_class_subjects cs
+         JOIN school_subjects s ON s.id = cs.subject_id
+         WHERE cs.class_id = c.id
+       ), '[]'::json) AS subjects
+     FROM school_classes c
+     WHERE c.id = $1 AND c.school_id = $2
+     LIMIT 1`,
+    [id, schoolId],
+  );
+
+  if (!result.rowCount) {
+    return res.status(404).json({ error: "Class not found" });
+  }
+
+  let teacherSubjects: unknown[] = [];
+  if (req.tenantUser?.role === "teacher") {
+    const subjectResult = await pool.query(
+      `SELECT s.id, s.name
+       FROM teacher_class_assignments tca
+       JOIN school_subjects s ON s.id = tca.subject_id
+       WHERE tca.school_id = $1 AND tca.teacher_id = $2 AND tca.class_id = $3`,
+      [schoolId, req.tenantUser.sub, id],
+    );
+    teacherSubjects = subjectResult.rows;
+  }
+
+  return res.json({
+    data: {
+      ...result.rows[0],
+      teacher_subjects: teacherSubjects,
+    },
+  });
+});
+
+classesRouter.get("/:id/students", async (req: TeacherScopedRequest, res) => {
+  const schoolId = req.schoolId;
+  const id = String(req.params.id);
+
+  if (!schoolId) {
+    return res.status(400).json({ error: "Missing tenant context" });
+  }
+
+  if (!assertClassAccess(req, id)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  // TODO: Ssekyanzi — full student management in Week 2
+  const students = await pool.query(
+    `SELECT
+       u.id,
+       COALESCE(u.name, u.full_name) AS name,
+       u.student_number AS learner_id,
+       NULL::text AS gender
+     FROM users u
+     WHERE u.school_id = $1
+       AND ${USER_LEARNER_ROLE_SQL}
+       AND u.school_class_id = $2
+     ORDER BY COALESCE(u.name, u.full_name) ASC`,
+    [schoolId, id],
+  );
+
+  return res.json({ data: students.rows });
 });
 
 classesRouter.post("/", async (req: TenantRequest, res) => {

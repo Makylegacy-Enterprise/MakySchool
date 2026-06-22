@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Building2, Lock, Mail } from "lucide-react";
@@ -184,6 +185,15 @@ export function LoginForm({
           />
 
           {error ? <AuthAlert message={error} /> : null}
+
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              href="/auth/forgot-password"
+              className="text-xs font-medium text-theme-accent hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           <AuthSubmitButton loading={loading}>Sign in</AuthSubmitButton>
           <AuthSecondaryButton onClick={goToEmailStep}>Back</AuthSecondaryButton>

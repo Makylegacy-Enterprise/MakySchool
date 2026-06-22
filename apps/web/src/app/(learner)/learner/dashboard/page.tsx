@@ -8,10 +8,11 @@ export default function LearnerDashboardPage() {
       description="Timetable, assignments, and results will appear here."
       maxWidth="lg"
     >
+      {/* TODO: Learner portal — Week 2 */}
       <div className="rounded-xl border border-dashed border-theme bg-theme-surface px-5 py-8 text-center">
-        <p className="text-sm font-medium text-theme-primary">Coming soon</p>
+        <p className="text-sm font-medium text-theme-primary">Learner portal</p>
         <p className="mt-1 text-sm text-theme-muted">
-          Learner workflows are being built in the learner portal.
+          Your timetable, assignments, and results will be available here soon.
         </p>
       </div>
     </DashboardPage>

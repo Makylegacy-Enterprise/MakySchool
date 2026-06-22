@@ -1,17 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, LayoutDashboard } from "lucide-react";
+import { BookOpen, ClipboardList, LayoutDashboard, User } from "lucide-react";
 import { USER_ROLES } from "@makyschool/shared/constants";
-import type { UserRole } from "@makyschool/shared/types";
+import type { PortalNavItem } from "./portal-nav";
 
-export type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  exact: boolean;
-  roles: readonly UserRole[];
-};
+export type { PortalNavItem as NavItem };
 
-export const teacherNav: NavItem[] = [
+export const teacherNav: PortalNavItem[] = [
   {
     href: "/teacher/dashboard",
     label: "Dashboard",
@@ -20,9 +14,23 @@ export const teacherNav: NavItem[] = [
     roles: [USER_ROLES.TEACHER],
   },
   {
-    href: "/teacher/classes",
-    label: "My classes",
+    href: "/teacher/dashboard",
+    label: "My Classes",
     icon: BookOpen,
+    exact: false,
+    roles: [USER_ROLES.TEACHER],
+  },
+  {
+    href: "/teacher/dashboard",
+    label: "Enter Marks",
+    icon: ClipboardList,
+    exact: false,
+    roles: [USER_ROLES.TEACHER],
+  },
+  {
+    href: "/teacher/profile",
+    label: "My Profile",
+    icon: User,
     exact: false,
     roles: [USER_ROLES.TEACHER],
   },

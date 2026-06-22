@@ -1,7 +1,9 @@
 import bcrypt from "bcrypt";
 import { Router } from "express";
-import { CLIENT_APP_HEADER, TENANT_HEADERS } from "@makyschool/shared/constants";
+import { CLIENT_APP_HEADER, ROLE_HOME, TENANT_HEADERS } from "@makyschool/shared/constants";
 import type { ClientAppKind } from "@makyschool/shared/constants";
+import { isMakySchoolRole } from "@makyschool/shared/types";
+import type { MakySchoolRole } from "@makyschool/shared/types";
 import { USER_DISPLAY_NAME_SQL, normalizeUserRole } from "../../db/userSql.js";
 import { pool } from "../../db/pool.js";
 import { getCookie } from "../../utils/http.js";
@@ -34,16 +36,17 @@ function resolveClientApp(req: import("express").Request): ClientAppKind {
 }
 
 function resolveSchoolRedirectPath(
+  role: MakySchoolRole,
   isTempPassword: boolean,
   setupCompleted: boolean,
 ) {
   if (isTempPassword) {
     return "/auth/change-password";
   }
-  if (!setupCompleted) {
+  if (role === "admin" && !setupCompleted) {
     return "/dashboard/setup";
   }
-  return "/dashboard";
+  return ROLE_HOME[role];
 }
 
 function clearAuthCookies(res: import("express").Response) {
@@ -96,6 +99,7 @@ authRouter.post("/login", async (req, res) => {
     school_status: string;
     subscription_status: string;
     account_status: string;
+    is_active: boolean | null;
     is_temp_password: boolean | null;
     setup_completed: boolean | null;
   }>(
@@ -107,6 +111,7 @@ authRouter.post("/login", async (req, res) => {
        u.role,
        u.school_id,
        u.account_status,
+       COALESCE(u.is_active, u.account_status = 'ACTIVE' OR u.account_status IS NULL) AS is_active,
        COALESCE(u.is_temp_password, false) AS is_temp_password,
        COALESCE(u.setup_completed, false) AS setup_completed,
        s.slug AS school_slug,
@@ -149,6 +154,22 @@ authRouter.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
+  const normalizedRole = normalizeUserRole(candidate.role);
+
+  if (clientApp === "tenant" && !isMakySchoolRole(normalizedRole)) {
+    return res.status(403).json({ error: "Account not valid for this portal" });
+  }
+
+  const isActive =
+    candidate.is_active ??
+    (candidate.account_status === "ACTIVE" || candidate.account_status == null);
+
+  if (!isActive) {
+    return res.status(403).json({
+      error: "Your account has been deactivated. Contact your school administrator.",
+    });
+  }
+
   if (candidate.account_status && candidate.account_status !== "ACTIVE") {
     return res.status(403).json({
       error: "Your account has been deactivated. Contact your school administrator.",
@@ -177,7 +198,7 @@ authRouter.post("/login", async (req, res) => {
 
   const subscription = refreshedSchool.rows[0];
 
-  const normalizedRole = normalizeUserRole(candidate.role);
+  const normalizedRoleTyped = normalizedRole as MakySchoolRole;
   const school: SchoolRow = {
     id: candidate.school_id,
     slug: candidate.school_slug,
@@ -193,7 +214,7 @@ authRouter.post("/login", async (req, res) => {
     sub: candidate.id,
     email: candidate.email,
     name: candidate.name,
-    role: normalizedRole as "admin" | "head_teacher" | "teacher" | "learner",
+    role: normalizedRoleTyped,
     schoolId: candidate.school_id,
     schoolSlug: candidate.school_slug,
     mustChangePassword: isTempPassword,
@@ -211,13 +232,14 @@ authRouter.post("/login", async (req, res) => {
   return res.json({
     data: {
       accountType: "school" as const,
-      role: normalizedRole,
-      redirectTo: resolveSchoolRedirectPath(isTempPassword, setupCompleted),
+      role: normalizedRoleTyped,
+      redirectTo: resolveSchoolRedirectPath(normalizedRoleTyped, isTempPassword, setupCompleted),
+      redirect: resolveSchoolRedirectPath(normalizedRoleTyped, isTempPassword, setupCompleted),
       user: {
         id: candidate.id,
         email: candidate.email,
         name: candidate.name,
-        role: normalizedRole,
+        role: normalizedRoleTyped,
         school_id: candidate.school_id,
       },
       school,

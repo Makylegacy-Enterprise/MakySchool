@@ -7,12 +7,12 @@ import type { UserRole } from "@makyschool/shared/types";
 import { ThemeToggle } from "@makyschool/ui/components/ui/ThemeToggle";
 import { apiClient } from "@/lib/api/client";
 import { clearSchoolSlug } from "@/lib/auth/session";
-import { filterNavByRole, type NavItem } from "@/lib/roles";
+import { filterPortalNavByRole, type PortalNavItem } from "@/lib/roles/portal-nav";
 
 type PortalNavProps = {
   schoolName?: string | null;
   role: UserRole;
-  navItems: NavItem[];
+  navItems: PortalNavItem[];
   portalLabel: string;
 };
 
@@ -24,7 +24,7 @@ export function PortalMobileNav({
 }: PortalNavProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const links = filterNavByRole(navItems, role);
+  const links = filterPortalNavByRole(navItems, role);
 
   async function handleLogout() {
     await apiClient("/auth/logout", { method: "POST" });
@@ -96,7 +96,7 @@ export function PortalSidebar({
 }: PortalNavProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const links = filterNavByRole(navItems, role);
+  const links = filterPortalNavByRole(navItems, role);
 
   async function handleLogout() {
     await apiClient("/auth/logout", { method: "POST" });

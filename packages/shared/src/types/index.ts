@@ -1,4 +1,5 @@
-export type UserRole = "admin" | "head_teacher" | "teacher" | "learner";
+export type UserRole = import("./rbac").MakySchoolRole;
+export type { MakySchoolRole } from "./rbac";
 
 export type SchoolType = "primary" | "secondary" | "both";
 
@@ -33,6 +34,7 @@ export interface ApiError {
   details?: Record<string, string[]>;
 }
 
+export * from "./rbac";
 export * from "./auth";
 export * from "./school";
 export * from "./classes";

@@ -48,3 +48,5 @@ export {
 } from "./classes";
 
 export { subscriptionsEnabled } from "./features";
+
+export { ROLE_HOME, CAN, can, type PermissionAction } from "./rbac";

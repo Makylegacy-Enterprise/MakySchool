@@ -1,17 +1,10 @@
-import type { LucideIcon } from "lucide-react";
+import type { PortalNavItem } from "./portal-nav";
 import { CalendarDays, LayoutDashboard } from "lucide-react";
 import { USER_ROLES } from "@makyschool/shared/constants";
-import type { UserRole } from "@makyschool/shared/types";
 
-export type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  exact: boolean;
-  roles: readonly UserRole[];
-};
+export type { PortalNavItem as NavItem };
 
-export const learnerNav: NavItem[] = [
+export const learnerNav: PortalNavItem[] = [
   {
     href: "/learner/dashboard",
     label: "Dashboard",

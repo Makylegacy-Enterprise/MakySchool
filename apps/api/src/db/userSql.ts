@@ -13,3 +13,7 @@ export function normalizeUserRole(role: string) {
   if (value === "learner") return "learner";
   return value;
 }
+
+export function isMakySchoolTenantRole(role: string) {
+  return ["admin", "head_teacher", "teacher", "learner"].includes(normalizeUserRole(role));
+}

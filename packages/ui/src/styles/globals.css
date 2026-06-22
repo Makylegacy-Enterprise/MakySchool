@@ -45,6 +45,11 @@
   --color-warning-text: #92400E;
   --color-warning-dot:  #FCD34D;
 
+  --color-role-ht-bg:     #F3E8FF;
+  --color-role-ht-text:   #6B21A8;
+  --color-role-teacher-bg: #CCFBF1;
+  --color-role-teacher-text: #0F766E;
+
   --color-input-bg:     #FFFFFF;
   --color-input-border: #D1D5DB;
   --color-input-focus:  #4F6EF7;
@@ -502,6 +507,8 @@ textarea {
   .badge-success { background-color: var(--color-success-bg); color: var(--color-success-text); }
   .badge-info    { background-color: var(--color-info-bg);    color: var(--color-info-text); }
   .badge-danger  { background-color: var(--color-danger-bg);  color: var(--color-danger-text); }
+  .badge-role-ht { background-color: var(--color-role-ht-bg); color: var(--color-role-ht-text); }
+  .badge-role-teacher { background-color: var(--color-role-teacher-bg); color: var(--color-role-teacher-text); }
   .badge-warning { background-color: var(--color-warning-bg); color: var(--color-warning-text); }
 
   .bg-nav-active       { background-color: var(--color-nav-active-bg); }
