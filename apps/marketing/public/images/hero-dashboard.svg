@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" fill="none" role="img" aria-label="MakySchool dashboard preview">
+  <rect width="1200" height="720" rx="24" fill="#F4F6FA"/>
+  <rect x="40" y="40" width="220" height="640" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="68" y="72" width="48" height="48" rx="12" fill="#4F6EF7"/>
+  <text x="92" y="102" text-anchor="middle" fill="white" font-family="system-ui,sans-serif" font-size="14" font-weight="700">MS</text>
+  <rect x="68" y="150" width="164" height="12" rx="6" fill="#EEF1FF"/>
+  <rect x="68" y="182" width="140" height="10" rx="5" fill="#EDF0F7"/>
+  <rect x="68" y="206" width="120" height="10" rx="5" fill="#EDF0F7"/>
+  <rect x="68" y="230" width="130" height="10" rx="5" fill="#EDF0F7"/>
+  <rect x="280" y="40" width="880" height="88" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="312" y="72" width="220" height="24" rx="12" fill="#EDF0F7"/>
+  <rect x="980" y="68" width="148" height="32" rx="16" fill="#4F6EF7"/>
+  <rect x="280" y="152" width="280" height="140" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="304" y="180" width="120" height="12" rx="6" fill="#9CA3AF"/>
+  <rect x="304" y="206" width="180" height="28" rx="8" fill="#111827"/>
+  <rect x="580" y="152" width="280" height="140" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="604" y="180" width="120" height="12" rx="6" fill="#9CA3AF"/>
+  <rect x="604" y="206" width="160" height="28" rx="8" fill="#111827"/>
+  <rect x="880" y="152" width="280" height="140" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="904" y="180" width="120" height="12" rx="6" fill="#9CA3AF"/>
+  <rect x="904" y="206" width="140" height="28" rx="8" fill="#111827"/>
+  <rect x="280" y="316" width="880" height="364" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="312" y="348" width="180" height="16" rx="8" fill="#111827"/>
+  <rect x="312" y="388" width="816" height="12" rx="6" fill="#F9FAFB"/>
+  <rect x="312" y="416" width="816" height="12" rx="6" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="312" y="444" width="816" height="12" rx="6" fill="#F9FAFB"/>
+  <rect x="312" y="472" width="816" height="12" rx="6" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="312" y="500" width="816" height="12" rx="6" fill="#F9FAFB"/>
+  <rect x="312" y="528" width="816" height="12" rx="6" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="312" y="612" width="120" height="36" rx="18" fill="#EEF1FF"/>
+  <rect x="448" y="612" width="120" height="36" rx="18" fill="#ECFDF5"/>
+</svg>

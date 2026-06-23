@@ -3,6 +3,7 @@
 @source "../**/*.{ts,tsx}";
 @source "../../../../apps/web/src/**/*.{ts,tsx}";
 @source "../../../../apps/admin/src/**/*.{ts,tsx}";
+@source "../../../../apps/marketing/src/**/*.{ts,tsx}";
 
 /* ============================================================
    MAKYSCHOOL DESIGN TOKENS

@@ -1,0 +1,31 @@
+{
+  "name": "@makyschool/marketing",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@makyschool/shared": "*",
+    "@makyschool/ui": "*",
+    "lucide-react": "^1.17.0",
+    "motion": "^12.40.0",
+    "next": "^16.2.7",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.8",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "eslint": "^9.28.0",
+    "eslint-config-next": "^16.2.7",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3"
+  }
+}

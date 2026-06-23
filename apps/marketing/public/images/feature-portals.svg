@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" fill="none" role="img" aria-label="Teacher and learner portals">
+  <rect width="640" height="400" rx="16" fill="#F4F6FA"/>
+  <rect x="32" y="48" width="272" height="304" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="56" y="76" width="96" height="96" rx="48" fill="#CCFBF1"/>
+  <rect x="168" y="88" width="108" height="14" rx="7" fill="#111827"/>
+  <rect x="168" y="112" width="88" height="10" rx="5" fill="#9CA3AF"/>
+  <rect x="56" y="196" width="224" height="12" rx="6" fill="#EDF0F7"/>
+  <rect x="56" y="220" width="200" height="12" rx="6" fill="#EDF0F7"/>
+  <rect x="56" y="260" width="120" height="32" rx="16" fill="#4F6EF7"/>
+  <rect x="336" y="48" width="272" height="304" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="360" y="76" width="96" height="96" rx="48" fill="#EEF1FF"/>
+  <rect x="472" y="88" width="108" height="14" rx="7" fill="#111827"/>
+  <rect x="472" y="112" width="88" height="10" rx="5" fill="#9CA3AF"/>
+  <rect x="360" y="196" width="224" height="12" rx="6" fill="#EDF0F7"/>
+  <rect x="360" y="220" width="180" height="12" rx="6" fill="#EDF0F7"/>
+  <rect x="360" y="260" width="120" height="32" rx="16" fill="#EEF1FF"/>
+</svg>

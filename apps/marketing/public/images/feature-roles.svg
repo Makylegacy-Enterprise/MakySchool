@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" fill="none" role="img" aria-label="Role-based access">
+  <rect width="640" height="400" rx="16" fill="#F4F6FA"/>
+  <rect x="48" y="56" width="120" height="120" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="72" y="80" width="72" height="12" rx="6" fill="#4F6EF7"/>
+  <rect x="72" y="104" width="56" height="10" rx="5" fill="#EDF0F7"/>
+  <rect x="72" y="124" width="64" height="10" rx="5" fill="#EDF0F7"/>
+  <rect x="260" y="56" width="120" height="120" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="284" y="80" width="72" height="12" rx="6" fill="#6B21A8" fill-opacity="0.25"/>
+  <rect x="284" y="104" width="56" height="10" rx="5" fill="#EDF0F7"/>
+  <rect x="472" y="56" width="120" height="120" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="496" y="80" width="72" height="12" rx="6" fill="#0F766E" fill-opacity="0.25"/>
+  <rect x="48" y="220" width="544" height="120" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="72" y="248" width="220" height="14" rx="7" fill="#111827"/>
+  <rect x="72" y="276" width="320" height="10" rx="5" fill="#9CA3AF"/>
+  <rect x="72" y="300" width="140" height="24" rx="12" fill="#EEF1FF"/>
+</svg>

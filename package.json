@@ -13,6 +13,7 @@
     "dev:caddy": "infrastructure/caddy/bin/caddy run --config infrastructure/caddy/Caddyfile",
     "dev:web": "npm run dev --workspace=@makyschool/web",
     "dev:admin": "npm run dev --workspace=@makyschool/admin",
+    "dev:marketing": "npm run dev --workspace=@makyschool/marketing",
     "dev:api": "npm run dev --workspace=@makyschool/api",
     "migrate": "npm run migrate --workspace=@makyschool/api",
     "seed": "npm run seed --workspace=@makyschool/api",

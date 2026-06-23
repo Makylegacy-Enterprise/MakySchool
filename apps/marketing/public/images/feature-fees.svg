@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" fill="none" role="img" aria-label="Fees and bursar">
+  <rect width="640" height="400" rx="16" fill="#F4F6FA"/>
+  <rect x="32" y="32" width="576" height="336" rx="20" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="56" y="56" width="180" height="16" rx="8" fill="#111827"/>
+  <rect x="56" y="96" width="528" height="12" rx="6" fill="#F9FAFB"/>
+  <rect x="56" y="120" width="528" height="44" rx="10" fill="#FFFFFF" stroke="#E2E6F0"/>
+  <rect x="72" y="134" width="160" height="10" rx="5" fill="#6B7280"/>
+  <rect x="420" y="132" width="72" height="20" rx="10" fill="#ECFDF5"/>
+  <rect x="508" y="132" width="60" height="20" rx="10" fill="#FFFBEB"/>
+  <rect x="56" y="176" width="528" height="44" rx="10" fill="#F9FAFB" stroke="#E2E6F0"/>
+  <rect x="72" y="190" width="140" height="10" rx="5" fill="#6B7280"/>
+  <rect x="420" y="188" width="72" height="20" rx="10" fill="#ECFDF5"/>
+  <rect x="508" y="188" width="60" height="20" rx="10" fill="#FEF2F2"/>
+  <rect x="56" y="252" width="160" height="36" rx="18" fill="#4F6EF7"/>
+  <rect x="232" y="252" width="160" height="36" rx="18" fill="#EEF1FF"/>
+</svg>
