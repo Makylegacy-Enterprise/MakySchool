@@ -30,8 +30,8 @@ export const navLinks = [
 ] as const;
 
 export const stats = [
-  { value: "5+", label: "Portals in one platform" },
-  { value: "3", label: "Academic terms supported" },
+  { value: "15+", label: "Modules for complete school operations" },
+  { value: "CBC", label: "Competency-based curriculum" },
   { value: "UGX", label: "Native fees & receipts" },
   { value: "24/7", label: "Cloud access" },
 ] as const;
@@ -65,39 +65,75 @@ export const howItWorks = [
 
 export const featureHighlights = [
   {
+    title: "CBC competency-based assessment",
+    description:
+      "Track competencies (critical thinking, problem solving, communication) with continuous assessment, not just exam marks. Record assignments, projects, group work, and practical activities throughout the term.",
+    imageKey: "academics" as const,
+  },
+  {
     title: "Classes & streams",
     description:
-      "Organise primary and secondary levels with streams, subjects, and term-based academic structure.",
+      "Organise primary and secondary levels with streams, subjects, and term-based academic structure. Support for P1-P7, S1-S4, S5-S6 with PLE, UCE, and UACE tracking.",
     imageKey: "classes" as const,
+  },
+  {
+    title: "Continuous assessment module",
+    description:
+      "Record assignments, projects, group work, practicals, class participation, and presentations. CBC-aligned tracking shows exceeds/meets/approaching/below expectations, not just percentages.",
+    imageKey: "academics" as const,
   },
   {
     title: "Teacher & learner portals",
     description:
-      "Dedicated workspaces for teachers and learners — not a one-size-fits-all admin screen.",
+      "Dedicated workspaces for teachers and learners. Teachers manage schemes of work, lesson plans, and competency assessments. Learners and parents access reports and attendance.",
     imageKey: "portals" as const,
   },
   {
     title: "Fees & bursar module",
     description:
-      "Fee structures, student accounts, payments, receipts, and outstanding balances with bursar access.",
+      "Fee structures in UGX, term payments, receipts, outstanding balances, and parent fee tracking. Bursar portal with payment recording, voiding, and comprehensive reports.",
     imageKey: "fees" as const,
+  },
+  {
+    title: "Theology & secular subjects",
+    description:
+      "Manage theology curriculum alongside secular subjects. Generate combined reports and theology-only reports. Full support for faith-based education programs.",
+    imageKey: "branding" as const,
+  },
+  {
+    title: "CBC report cards",
+    description:
+      "Uganda CBC-compliant report cards with academic performance, competency ratings, teacher comments, headteacher remarks, attendance, student strengths, and improvement areas.",
+    imageKey: "academics" as const,
+  },
+  {
+    title: "Parent portal",
+    description:
+      "Parents view CBC reports, monitor attendance, track fees, receive school announcements, and communicate with teachers from any device.",
+    imageKey: "portals" as const,
+  },
+  {
+    title: "Attendance & discipline",
+    description:
+      "Daily attendance tracking, discipline records, medical information, and behavior monitoring. Generate attendance reports and trend analytics.",
+    imageKey: "roles" as const,
+  },
+  {
+    title: "Analytics dashboard",
+    description:
+      "View best-performing students, weak subjects, attendance trends, fee balances, teacher performance, and CBC competency achievement rates across your school.",
+    imageKey: "academics" as const,
   },
   {
     title: "Role-based access",
     description:
-      "Admin, head teacher, teacher, bursar, and learner permissions enforced across every route.",
+      "Admin, head teacher, teacher, bursar, and learner permissions enforced across every route. Audit logs, user management, and secure role-based workflows.",
     imageKey: "roles" as const,
-  },
-  {
-    title: "Academic terms & grading",
-    description:
-      "Uganda-style three-term years, grading scales, and marks workflows aligned to how schools run.",
-    imageKey: "academics" as const,
   },
   {
     title: "School branding",
     description:
-      "Each school gets a branded workspace with its own identity across portals and communications.",
+      "Each school gets a branded workspace with its own identity across portals, report cards, and communications.",
     imageKey: "branding" as const,
   },
 ] as const;
@@ -106,12 +142,17 @@ export const pricingTiers = [
   {
     name: "School",
     price: "Contact us",
-    description: "For a single primary or secondary school getting started on MakySchool.",
+    description: "For a single primary or secondary school getting started with CBC-compliant management.",
     features: [
       "Unlimited staff & learner accounts",
+      "CBC competency-based assessment",
+      "Continuous assessment tracking",
       "Classes, subjects & academic terms",
       "Teacher & learner portals",
       "Fees management & bursar portal",
+      "Theology & secular subjects",
+      "CBC-compliant report cards",
+      "Parent portal access",
       "Guided onboarding support",
     ],
     cta: "Book a demo",
@@ -120,9 +161,13 @@ export const pricingTiers = [
   {
     name: "Campus",
     price: "Custom",
-    description: "For schools with multiple sections, streams, or growing administrative teams.",
+    description: "For schools with multiple sections, streams, or growing teams needing advanced analytics.",
     features: [
       "Everything in School",
+      "Advanced analytics dashboard",
+      "Competency achievement tracking",
+      "Teacher performance reports",
+      "Attendance & discipline analytics",
       "Advanced fees reporting",
       "Priority onboarding",
       "Dedicated success contact",
@@ -134,13 +179,16 @@ export const pricingTiers = [
   {
     name: "Group",
     price: "Custom",
-    description: "For education groups, dioceses, or operators managing several institutions.",
+    description: "For education groups, dioceses, or operators managing several institutions with centralized oversight.",
     features: [
       "Everything in Campus",
       "Multi-school provisioning",
       "Central platform administration",
+      "Cross-school analytics",
+      "Group-wide reporting",
       "Volume pricing",
       "Custom rollout planning",
+      "Enterprise support",
     ],
     cta: "Book a demo",
     highlighted: false,
