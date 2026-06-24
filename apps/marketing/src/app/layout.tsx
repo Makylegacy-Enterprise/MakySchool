@@ -5,6 +5,7 @@ import { MarketingHeader } from "@/components/layout/MarketingHeader";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationJsonLd, softwareApplicationJsonLd, webSiteJsonLd, localBusinessJsonLd, productJsonLd } from "@/lib/json-ld";
 import { createPageMetadata } from "@/lib/metadata";
+import { defaultRobots, seoKeywords, siteVerificationMetadata } from "@/lib/seo";
 import { siteConfig } from "@/lib/site";
 import { MarketingProviders } from "@/providers/MarketingProviders";
 import { MarketingScrollChrome } from "@/components/motion/MarketingScrollChrome";
@@ -22,25 +23,37 @@ const geistMono = Geist_Mono({
 });
 
 const rootMetadata = createPageMetadata({
-  title: siteConfig.name,
+  title: `${siteConfig.name} — ${siteConfig.tagline}`,
   description: siteConfig.description,
   path: "/",
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://makyschool.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://school.makylegacy.com"),
   title: {
-    default: siteConfig.name,
+    default: `${siteConfig.name} — ${siteConfig.tagline}`,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  keywords: [...seoKeywords],
+  applicationName: siteConfig.name,
+  authors: [{ name: siteConfig.company, url: siteConfig.companyUrl }],
+  creator: siteConfig.company,
+  publisher: siteConfig.company,
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
   icons: {
-    icon: "/makyschool-logo.jpeg",
-    apple: "/makyschool-logo.jpeg",
+    icon: [{ url: "/makyschool-logo.jpeg", type: "image/jpeg" }],
+    apple: [{ url: "/makyschool-logo.jpeg", type: "image/jpeg" }],
   },
   alternates: rootMetadata.alternates,
   openGraph: rootMetadata.openGraph,
   twitter: rootMetadata.twitter,
+  robots: defaultRobots,
+  ...siteVerificationMetadata(),
 };
 
 const themeInitScript = `

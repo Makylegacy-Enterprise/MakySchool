@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { defaultRobots, seoKeywords } from "./seo";
 import { siteConfig, siteUrl } from "./site";
-import { marketingImages } from "./images";
 
 type PageMetadataOptions = {
   title: string;
@@ -8,41 +8,40 @@ type PageMetadataOptions = {
   path?: string;
 };
 
+function pageTitle(title: string): string {
+  return title.includes(siteConfig.name)
+    ? title
+    : `${title} | ${siteConfig.name}`;
+}
+
 export function createPageMetadata({
   title,
   description,
   path = "",
 }: PageMetadataOptions): Metadata {
   const url = `${siteUrl}${path}`;
-  const ogImage = `${siteUrl}${marketingImages.og.src}`;
+  const resolvedTitle = pageTitle(title);
 
   return {
     title,
     description,
+    keywords: [...seoKeywords],
     alternates: {
       canonical: url,
     },
+    robots: defaultRobots,
     openGraph: {
       type: "website",
       locale: siteConfig.locale,
       url,
       siteName: siteConfig.name,
-      title: `${title} | ${siteConfig.name}`,
+      title: resolvedTitle,
       description,
-      images: [
-        {
-          url: ogImage,
-          width: marketingImages.og.width,
-          height: marketingImages.og.height,
-          alt: marketingImages.og.alt,
-        },
-      ],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | ${siteConfig.name}`,
+      title: resolvedTitle,
       description,
-      images: [ogImage],
     },
   };
 }

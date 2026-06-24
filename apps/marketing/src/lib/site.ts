@@ -16,7 +16,7 @@ export const siteConfig = {
 } as const;
 
 export const siteUrl = trimTrailingSlash(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://makyschool.com",
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://school.makylegacy.com",
 );
 
 export const contactPageUrl = "/contact";

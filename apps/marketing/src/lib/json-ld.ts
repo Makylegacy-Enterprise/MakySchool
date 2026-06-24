@@ -36,6 +36,7 @@ export function softwareApplicationJsonLd() {
     name: siteConfig.name,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
+    image: `${siteUrl}/opengraph-image`,
     description: "Uganda's best school management system for primary schools, secondary schools, and theology-focused schools. Manage classes, academics, theology curriculum, teachers, learners, fees in UGX, and complete school operations from one platform.",
     url: siteUrl,
     offers: {
@@ -85,7 +86,7 @@ export function localBusinessJsonLd() {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     name: siteConfig.name,
-    image: `${siteUrl}/makyschool-logo.jpeg`,
+    image: `${siteUrl}/opengraph-image`,
     "@id": siteUrl,
     url: siteUrl,
     telephone: siteConfig.contactPhone,
@@ -146,6 +147,15 @@ export function webSiteJsonLd() {
       "@type": "Organization",
       name: siteConfig.company,
       url: siteConfig.companyUrl,
+      logo: `${siteUrl}/makyschool-logo.jpeg`,
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${siteUrl}/features?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
     },
   };
 }
@@ -156,6 +166,7 @@ export function productJsonLd() {
     "@type": "Product",
     name: `${siteConfig.name} - School Management System`,
     description: siteConfig.description,
+    image: `${siteUrl}/opengraph-image`,
     brand: {
       "@type": "Brand",
       name: siteConfig.company,

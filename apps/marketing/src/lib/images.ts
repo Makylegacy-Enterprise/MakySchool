@@ -64,10 +64,10 @@ export const marketingImages = {
     height: 768,
   },
   og: {
-    src: "/makyschool-logo.jpeg",
-    alt: "MakySchool — school management platform",
-    width: 512,
-    height: 512,
+    src: "/opengraph-image",
+    alt: "MakySchool — Uganda school management platform",
+    width: 1200,
+    height: 630,
   },
 } as const;
 

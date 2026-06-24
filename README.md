@@ -1,6 +1,6 @@
 # MakySchool
 
-MakySchool is a multi-tenant school management platform built for Ugandan schools. School tenants run on `apps/web` (`school.makylegacy.com` + `*.school.makylegacy.com`). Platform operators use `apps/admin` (`myschool.makylegacy.com`) to provision schools. The public marketing site lives in `apps/marketing` (`makyschool.com`). All frontends share one **FastAPI** backend in `apps/api`.
+MakySchool is a multi-tenant school management platform built for Ugandan schools. The public marketing site lives at `school.makylegacy.com` (`apps/marketing`). School tenants run on `*.school.makylegacy.com` (`apps/web`). Platform operators use `apps/admin` (`myschool.makylegacy.com`) to provision schools. All frontends share one **FastAPI** backend in `apps/api`.
 
 The codebase is a monorepo: three Next.js frontends, a Python API, and shared packages for types, UI, and constants. The previous Express API is preserved read-only in `apps/api-backup/` for reference during the migration.
 
@@ -31,9 +31,9 @@ Legacy database tables from the original single-school product live in `apps/api
 
 | Layer | Technology | Port (local) | Production domain |
 |-------|------------|--------------|-------------------|
-| Tenant web | Next.js 16, React 19, Tailwind 4 | 3000 | `school.makylegacy.com`, `*.school.makylegacy.com` |
+| Marketing | Next.js 16 | 3002 | `school.makylegacy.com` |
+| Tenant web | Next.js 16, React 19, Tailwind 4 | 3000 | `*.school.makylegacy.com` |
 | Platform admin | Next.js 16 | 3001 | `myschool.makylegacy.com` |
-| Marketing | Next.js 16 | 3002 | `makyschool.com` |
 | API | FastAPI, Python 3.12–3.14, asyncpg | 4000 | Render (or similar) |
 | Database | PostgreSQL (Supabase) | — | — |
 
@@ -134,7 +134,7 @@ Middleware and layout guards redirect each role to its home path after login. RB
 | Teacher | `apps/web` | `/teacher/dashboard` | `teacher` |
 | Learner | `apps/web` | `/learner/dashboard` | `learner` |
 | Setup wizard | `apps/web` | `/dashboard/setup` | New school admins |
-| Marketing | `apps/marketing` | `makyschool.com` | Public |
+| Marketing | `apps/marketing` | `school.makylegacy.com` | Public |
 
 Platform login uses `POST /api/superadmin/auth/login`. Tenant login uses `POST /api/auth/login` with `x-makyschool-client-app: tenant` and rejects platform administrator emails.
 
@@ -339,7 +339,7 @@ Deploy four services:
 
 Set `API_INTERNAL_URL` on all Vercel projects to the API URL. Set `CORS_ORIGIN` on the API to all frontend origins (comma-separated). Set `PLATFORM_APP_URL=https://myschool.makylegacy.com` on the API.
 
-Tenant Vercel domains: `school.makylegacy.com`, `*.school.makylegacy.com`. Admin Vercel domain: `myschool.makylegacy.com`. Marketing: `makyschool.com`.
+Marketing Vercel domain: `school.makylegacy.com`. Tenant Vercel domains: `*.school.makylegacy.com`. Admin Vercel domain: `myschool.makylegacy.com`.
 
 File uploads persist on the API filesystem. Mount a volume at `apps/api/uploads` or plan object storage if you scale beyond a single node.
 
