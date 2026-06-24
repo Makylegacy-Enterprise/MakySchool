@@ -1,52 +1,121 @@
-from fastapi import Request, HTTPException, status
-from typing import Optional
-from app.db.pool import get_db_cursor
+import asyncio
+import uuid
+from typing import Any
 
-tenant_cache = {}
+import asyncpg
+from cachetools import TTLCache
+from fastapi import Depends, HTTPException, Request, status
 
-async def get_tenant_from_header(request: Request) -> Optional[dict]:
-    school_slug = request.headers.get("x-school-slug")
-    school_id = request.headers.get("x-school-id")
-    
-    if not school_slug:
-        return None
-    
-    if school_slug in tenant_cache:
-        return tenant_cache[school_slug]
-    
-    with get_db_cursor() as cursor:
-        cursor.execute(
-            "SELECT id, slug, name, status FROM schools WHERE slug = %s",
-            (school_slug,)
-        )
-        school = cursor.fetchone()
-        
-        if school:
-            tenant_cache[school_slug] = dict(school)
-            return tenant_cache[school_slug]
-    
-    return None
+from app.db.pool import get_db
+from app.lib.user_sql import USER_DISPLAY_NAME_SQL, normalize_user_role
+from app.middleware.auth import get_current_user
 
-def require_tenant(request: Request):
-    school_slug = request.headers.get("x-school-slug")
-    if not school_slug:
+_slug_cache: TTLCache = TTLCache(maxsize=1000, ttl=300)
+_cache_lock = asyncio.Lock()
+
+TENANT_HEADER_SLUG = "x-school-slug"
+
+
+async def resolve_tenant(
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+) -> uuid.UUID:
+    slug = (request.headers.get(TENANT_HEADER_SLUG) or "").strip().lower()
+    if not slug:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing tenant context"
+            detail={"error": "Missing tenant context", "code": "TENANT_CONTEXT_REQUIRED"},
         )
-    return school_slug
 
-def get_school_id(request: Request) -> int:
-    school_id = request.headers.get("x-school-id")
-    if not school_id:
+    async with _cache_lock:
+        cached = _slug_cache.get(slug)
+    if cached:
+        return cached
+
+    row = await conn.fetchrow(
+        "SELECT id FROM schools WHERE slug = $1 LIMIT 1",
+        slug,
+    )
+    if not row:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing school ID in request"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "School not found"},
         )
-    try:
-        return int(school_id)
-    except ValueError:
+
+    school_id = row["id"]
+    async with _cache_lock:
+        _slug_cache[slug] = school_id
+    return school_id
+
+
+async def invalidate_tenant_cache(slug: str) -> None:
+    async with _cache_lock:
+        _slug_cache.pop(slug.lower(), None)
+
+
+async def get_tenant_and_user(
+    request: Request,
+    school_id: uuid.UUID = Depends(resolve_tenant),
+    current_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_db),
+) -> tuple[uuid.UUID, dict[str, Any]]:
+    jwt_school_id = current_user.get("schoolId")
+    if jwt_school_id and uuid.UUID(str(jwt_school_id)) != school_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid school ID"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Forbidden", "code": "TENANT_MISMATCH"},
         )
+
+    user_row = await conn.fetchrow(
+        f"""
+        SELECT u.id, u.role,
+               COALESCE(u.is_active, u.account_status = 'ACTIVE' OR u.account_status IS NULL) AS is_active,
+               {USER_DISPLAY_NAME_SQL} AS name,
+               u.email
+        FROM users u
+        WHERE u.id = $1 AND u.school_id = $2
+        LIMIT 1
+        """,
+        uuid.UUID(str(current_user["sub"])),
+        school_id,
+    )
+    if not user_row:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Forbidden", "code": "TENANT_MISMATCH"},
+        )
+    if not user_row["is_active"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "Your account has been deactivated. Contact your school administrator.",
+                "code": "ACCOUNT_DEACTIVATED",
+            },
+        )
+
+    role = normalize_user_role(user_row["role"])
+    enriched = {
+        **current_user,
+        "role": role,
+        "user_db_id": user_row["id"],
+        "name": user_row["name"],
+        "email": user_row["email"],
+    }
+    return school_id, enriched
+
+
+def require_permission(action: str):
+    async def check(
+        ctx: tuple[uuid.UUID, dict] = Depends(get_tenant_and_user),
+    ) -> tuple[uuid.UUID, dict]:
+        _school_id, user = ctx
+        from app.lib.permissions import can
+
+        if not can(user["role"], action):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": "Forbidden"},
+            )
+        return ctx
+
+    return check

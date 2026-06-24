@@ -1,42 +1,33 @@
-import psycopg2
-from psycopg2.pool import SimpleConnectionPool
-from psycopg2.extras import RealDictCursor
-from app.core.config import settings
-from contextlib import contextmanager
+from typing import AsyncGenerator
 
-pool = None
+import asyncpg
 
-async def init_db():
-    global pool
-    pool = SimpleConnectionPool(
-        minconn=1,
-        maxconn=20,
-        dsn=settings.DATABASE_URL
-    )
+from app.config import settings
 
-async def close_db():
-    global pool
-    if pool:
-        pool.closeall()
+_pool: asyncpg.Pool | None = None
 
-@contextmanager
-def get_db_connection():
-    conn = pool.getconn()
-    try:
+
+async def get_pool() -> asyncpg.Pool:
+    global _pool
+    if _pool is None:
+        _pool = await asyncpg.create_pool(
+            dsn=settings.DATABASE_URL,
+            min_size=2,
+            max_size=20,
+            command_timeout=30,
+            statement_cache_size=0,
+        )
+    return _pool
+
+
+async def close_pool() -> None:
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
+
+
+async def get_db() -> AsyncGenerator[asyncpg.Connection, None]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
         yield conn
-    finally:
-        pool.putconn(conn)
-
-@contextmanager
-def get_db_cursor(commit=False):
-    with get_db_connection() as conn:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            yield cursor
-            if commit:
-                conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            cursor.close()

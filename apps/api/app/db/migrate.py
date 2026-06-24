@@ -1,63 +1,73 @@
-import os
-import psycopg2
+import re
 from pathlib import Path
-from app.core.config import settings
 
-def run_migrations():
-    """Run all pending SQL migrations"""
-    migrations_dir = Path(__file__).parent.parent / "migrations"
-    
-    conn = psycopg2.connect(settings.DATABASE_URL)
-    cursor = conn.cursor()
-    
-    # Create migrations tracking table
-    cursor.execute("""
+import asyncpg
+
+from app.config import settings
+
+MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
+MIGRATION_FILE_PATTERN = re.compile(r"^\d{3}_[a-z0-9_]+\.sql$", re.IGNORECASE)
+# Unused central-auth experiment; INTEGER school_id incompatible with UUID schools.id
+SKIP_MIGRATIONS = frozenset({"014_auth_service_integration.sql"})
+
+
+async def run_migrations(conn: asyncpg.Connection) -> None:
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS schema_migrations (
-            version VARCHAR(255) PRIMARY KEY,
-            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            filename TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    conn.commit()
-    
-    # Get applied migrations
-    cursor.execute("SELECT version FROM schema_migrations")
-    applied = {row[0] for row in cursor.fetchall()}
-    
-    # Get migration files
-    migration_files = sorted([
-        f for f in os.listdir(migrations_dir) 
-        if f.endswith('.sql') and f != 'schema.sql'
-    ])
-    
-    # Run pending migrations
-    for migration_file in migration_files:
-        if migration_file in applied:
-            print(f"✓ Already applied: {migration_file}")
+        """
+    )
+
+    rows = await conn.fetch("SELECT filename FROM schema_migrations")
+    applied = {row["filename"] for row in rows}
+
+    sql_files = sorted(
+        f
+        for f in MIGRATIONS_DIR.glob("*.sql")
+        if f.name != "schema.sql" and MIGRATION_FILE_PATTERN.match(f.name)
+    )
+
+    for sql_file in sql_files:
+        if sql_file.name in applied:
             continue
-        
-        print(f"→ Applying: {migration_file}")
-        
-        migration_path = migrations_dir / migration_file
-        with open(migration_path, 'r', encoding='utf-8') as f:
-            sql = f.read()
-        
-        try:
-            cursor.execute(sql)
-            cursor.execute(
-                "INSERT INTO schema_migrations (version) VALUES (%s)",
-                (migration_file,)
+        if sql_file.name in SKIP_MIGRATIONS:
+            print(f"Skipping migration: {sql_file.name} (incompatible / unused)")
+            async with conn.transaction():
+                await conn.execute(
+                    "INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING",
+                    sql_file.name,
+                )
+            continue
+        print(f"Applying migration: {sql_file.name}")
+        sql = sql_file.read_text(encoding="utf-8")
+        async with conn.transaction():
+            await conn.execute(sql)
+            await conn.execute(
+                "INSERT INTO schema_migrations (filename) VALUES ($1)",
+                sql_file.name,
             )
-            conn.commit()
-            print(f"✓ Applied: {migration_file}")
-        except Exception as e:
-            conn.rollback()
-            print(f"✗ Failed: {migration_file}")
-            print(f"  Error: {e}")
-            break
-    
-    cursor.close()
-    conn.close()
-    print("\n✓ Migration complete")
+        print(f"  Applied: {sql_file.name}")
+
+
+async def run_migrations_on_startup() -> None:
+    if settings.is_production and not settings.RUN_MIGRATIONS:
+        return
+
+    conn = await asyncpg.connect(dsn=settings.DATABASE_URL)
+    try:
+        await run_migrations(conn)
+    finally:
+        await conn.close()
+
 
 if __name__ == "__main__":
-    run_migrations()
+    import asyncio
+
+    async def _main() -> None:
+        await run_migrations_on_startup()
+        print("Migrations complete")
+
+    asyncio.run(_main())
