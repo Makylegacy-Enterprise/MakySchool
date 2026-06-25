@@ -20,7 +20,7 @@ export function DashboardShell({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {header ? <div className="shrink-0 lg:hidden">{header}</div> : null}
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden xl:gap-4">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {topBar ? <div className="shrink-0">{topBar}</div> : null}
 
@@ -30,9 +30,7 @@ export function DashboardShell({
           </div>
 
           {rightRail ? (
-            <aside className="dashboard-scroll hidden w-80 shrink-0 overflow-y-auto border-l border-theme bg-theme-surface xl:block">
-              {rightRail}
-            </aside>
+            <div className="hidden h-full shrink-0 xl:block">{rightRail}</div>
           ) : null}
         </div>
       </div>

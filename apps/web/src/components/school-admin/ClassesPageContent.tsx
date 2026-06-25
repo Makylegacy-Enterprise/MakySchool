@@ -11,6 +11,7 @@ export function ClassesPageContent() {
   if (!school) {
     return (
       <DashboardPage
+        embedded
         eyebrow="Academic structure"
         title="Classes & subjects"
         description="Organise levels, streams, and subject assignments."
@@ -22,6 +23,7 @@ export function ClassesPageContent() {
 
   return (
     <DashboardPage
+      embedded
       eyebrow="Academic structure"
       title="Classes & subjects"
       description={`Organise levels, streams, and subject assignments for ${school.name ?? "your school"}.`}

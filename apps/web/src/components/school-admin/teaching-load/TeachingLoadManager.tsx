@@ -52,7 +52,7 @@ export function TeachingLoadManager() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-theme-primary">Teaching load</h1>
         <p className="mt-1 text-sm text-theme-muted">

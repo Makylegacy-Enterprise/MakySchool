@@ -33,7 +33,7 @@ export function TeacherDetailContent({ teacherId }: { teacherId: string }) {
     data?.submission_status.filter((item) => item.status === "submitted").length ?? 0;
 
   return (
-    <DashboardPage maxWidth="7xl">
+    <DashboardPage maxWidth="7xl" embedded>
       <QueryState
         error={error}
         isLoading={isLoading}

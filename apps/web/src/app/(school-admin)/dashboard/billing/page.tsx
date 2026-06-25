@@ -19,7 +19,7 @@ export default async function BillingPage() {
 
   if (session?.role !== "admin") {
     return (
-      <DashboardPage title="Billing" description="MakySchool subscription" maxWidth="lg">
+      <DashboardPage embedded title="Billing" description="MakySchool subscription" maxWidth="lg">
         <div className="ms-panel p-6 text-sm leading-6 text-theme-muted">
           Only school administrators can manage billing. Ask your school admin to complete the
           subscription payment.
@@ -56,6 +56,7 @@ export default async function BillingPage() {
 
   return (
     <DashboardPage
+      embedded
       title="Billing"
       description={
         needsPayment

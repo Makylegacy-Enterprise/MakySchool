@@ -8,6 +8,7 @@ import { SubscriptionLockout } from "@/components/school-admin/SubscriptionLocko
 import { SessionManager } from "@/components/session/SessionManager";
 import { subscriptionsEnabled } from "@makyschool/shared/constants";
 import { DashboardShell } from "@makyschool/ui/components/layout/DashboardShell";
+import { DashboardContent } from "@makyschool/ui/components/layout/DashboardContent";
 import { getTenantPayloadFromCookies } from "@/lib/auth/server-tenant";
 import { apiFetch } from "@/lib/api/server";
 import { requirePortalSession } from "@/lib/roles";
@@ -83,9 +84,11 @@ export default async function SchoolAdminDashboardLayout({
         topBar={<DashboardTopBar />}
         rightRail={<DashboardRightRail />}
       >
-        <SessionManager />
-        {children}
-        {subscriptionsEnabled() ? <SubscriptionLockout /> : null}
+        <DashboardContent>
+          <SessionManager />
+          {children}
+          {subscriptionsEnabled() ? <SubscriptionLockout /> : null}
+        </DashboardContent>
       </DashboardShell>
       </SchoolProvider>
     </PortalRoleProvider>

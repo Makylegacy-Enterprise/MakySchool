@@ -4,6 +4,7 @@ import { UsersPageContent } from "@/components/users/UsersPageContent";
 export default function UsersPage() {
   return (
     <DashboardPage
+      embedded
       eyebrow="School admin"
       title="Users"
       description="Manage staff accounts for your school"

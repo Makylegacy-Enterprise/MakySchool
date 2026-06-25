@@ -37,7 +37,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
   const { data, error, isLoading, mutate } = useApiSWR<UserDetail>(`/schools/users/${userId}`);
 
   return (
-    <DashboardPage maxWidth="7xl">
+    <DashboardPage maxWidth="7xl" embedded>
       <QueryState
         error={error}
         isLoading={isLoading}

@@ -253,7 +253,7 @@ export function TimetableEditor() {
   const canSave = Boolean(selectedClassId && templates.length > 0 && validation.valid);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-theme-primary">Timetable</h1>

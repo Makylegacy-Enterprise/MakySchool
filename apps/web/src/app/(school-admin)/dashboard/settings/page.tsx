@@ -3,6 +3,7 @@ import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
 export default function SchoolSettingsPage() {
   return (
     <DashboardPage
+      embedded
       eyebrow="Configuration"
       title="School profile & setup"
       description="Logo, stamp, academic year, terms, and grading scale are managed during the initial setup wizard."

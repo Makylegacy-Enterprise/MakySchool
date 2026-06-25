@@ -44,7 +44,7 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
   const { data, error, isLoading, mutate } = useApiSWR<StudentDetail>(`/schools/students/${studentId}`);
 
   return (
-    <DashboardPage maxWidth="7xl">
+    <DashboardPage maxWidth="7xl" embedded>
       <QueryState
         error={error}
         isLoading={isLoading}

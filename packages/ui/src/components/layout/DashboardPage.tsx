@@ -9,6 +9,8 @@ type DashboardPageProps = {
   description?: ReactNode;
   actions?: ReactNode;
   maxWidth?: "lg" | "7xl";
+  /** When true, skips outer padding (parent layout already provides it). */
+  embedded?: boolean;
 };
 
 const maxWidthClass = {
@@ -24,6 +26,7 @@ export function DashboardPage({
   description,
   actions,
   maxWidth = "7xl",
+  embedded = false,
 }: DashboardPageProps) {
   const resolvedHeader =
     header ??
@@ -41,7 +44,9 @@ export function DashboardPage({
       {resolvedHeader ? <div className="shrink-0">{resolvedHeader}</div> : null}
 
       <div
-        className={`mx-auto w-full ${maxWidthClass[maxWidth]} px-4 py-6 sm:px-6 sm:py-6 lg:px-8`}
+        className={`mx-auto w-full ${maxWidthClass[maxWidth]} ${
+          embedded ? "" : "px-4 py-6 sm:px-6 sm:py-6 lg:px-8"
+        }`}
       >
         {children}
       </div>
