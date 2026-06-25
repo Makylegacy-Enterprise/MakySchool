@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from typing import Annotated, Any
 
 import asyncpg
@@ -19,8 +20,8 @@ router = APIRouter()
 
 class TermInput(BaseModel):
     name: str | None = None
-    startDate: str | None = None
-    endDate: str | None = None
+    startDate: date | None = None
+    endDate: date | None = None
 
 
 class AcademicYearInput(BaseModel):
