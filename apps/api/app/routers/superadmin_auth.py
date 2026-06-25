@@ -49,9 +49,12 @@ async def superadmin_login(
     clear_auth_cookies(response)
     result = await authenticate_superadmin(conn, body.email, body.password, response)
     if not result.get("ok"):
+        detail: dict[str, str] = {"error": result.get("error", "Invalid credentials")}
+        if result.get("code"):
+            detail["code"] = result["code"]
         raise HTTPException(
             status_code=result.get("status", 401),
-            detail={"error": result.get("error", "Invalid credentials")},
+            detail=detail,
         )
     return {"data": result["data"]}
 

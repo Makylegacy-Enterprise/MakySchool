@@ -8,9 +8,8 @@ from app.lib.jwt_utils import (
     REFRESH_TOKEN_EXPIRES,
     cookie_options,
     sign_superadmin_token,
-    sign_tenant_token,
 )
-from app.lib.password import hash_password, verify_password
+from app.services.login_lockout import verify_login_with_lockout
 
 
 def platform_app_url() -> str:
@@ -36,8 +35,20 @@ async def authenticate_superadmin(
         "SELECT id, email, password_hash, name FROM super_admins WHERE LOWER(email) = LOWER($1) LIMIT 1",
         normalized,
     )
-    if not admin or not verify_password(password, admin["password_hash"]):
+    if not admin:
         return {"ok": False, "status": 401, "error": "Invalid credentials"}
+
+    lockout = await verify_login_with_lockout(
+        conn,
+        table="super_admins",
+        user_id=admin["id"],
+        password=password,
+    )
+    if not lockout.ok:
+        result: dict = {"ok": False, "status": lockout.status, "error": lockout.error}
+        if lockout.code:
+            result["code"] = lockout.code
+        return result
 
     payload = {
         "sub": str(admin["id"]),

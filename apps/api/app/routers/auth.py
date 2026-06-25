@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -33,6 +34,7 @@ from app.middleware.auth import (
     clear_auth_cookies,
     get_current_user,
 )
+from app.services.login_lockout import verify_login_with_lockout
 from app.services.platform_login import authenticate_superadmin, is_superadmin_email
 from app.services.subscription import audit_school_subscription
 
@@ -86,8 +88,11 @@ async def login(
     if _resolve_client_app(request) == "platform":
         result = await authenticate_superadmin(conn, normalized_email, body.password, response)
         if not result["ok"]:
+            payload: dict[str, str] = {"error": result["error"]}
+            if result.get("code"):
+                payload["code"] = result["code"]
             return Response(
-                content=f'{{"error":"{result["error"]}"}}',
+                content=json.dumps(payload),
                 status_code=result["status"],
                 media_type="application/json",
             )
@@ -156,10 +161,19 @@ async def login(
             media_type="application/json",
         )
 
-    if not verify_password(body.password, candidate["password_hash"]):
+    lockout = await verify_login_with_lockout(
+        conn,
+        table="users",
+        user_id=candidate["id"],
+        password=body.password,
+    )
+    if not lockout.ok:
+        payload = {"error": lockout.error}
+        if lockout.code:
+            payload["code"] = lockout.code
         return Response(
-            content='{"error":"Invalid credentials"}',
-            status_code=401,
+            content=json.dumps(payload),
+            status_code=lockout.status,
             media_type="application/json",
         )
 
