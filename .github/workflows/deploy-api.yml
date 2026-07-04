@@ -109,25 +109,32 @@ jobs:
                 apt-get update && apt-get install -y caddy
             fi
 
-            # Place Caddyfile — merge with existing if present
+            # ── Firewall: open 80 + 443 for Caddy ────────────────────────
+            if command -v ufw &> /dev/null; then
+                ufw allow 80/tcp || true
+                ufw allow 443/tcp || true
+            fi
+
+            # ── Caddy config ──────────────────────────────────────────────
             CADDY_DIR="/etc/caddy"
             mkdir -p $CADDY_DIR/conf.d
 
             cp /tmp/makyschool-caddy/Caddyfile.production $CADDY_DIR/conf.d/makyschool-api.caddy
 
-            # Write root Caddyfile that imports all conf.d snippets
-            cat > $CADDY_DIR/Caddyfile << 'EOF'
-            {
-                email admin@makylegacy.com
-            }
+            # Write root Caddyfile (no leading spaces — heredoc must be unindented)
+            cat > $CADDY_DIR/Caddyfile << 'CADDYEOF'
+{
+    email admin@makylegacy.com
+}
 
-            import /etc/caddy/conf.d/*.caddy
-            EOF
+import /etc/caddy/conf.d/*.caddy
+CADDYEOF
 
-            caddy fmt --overwrite $CADDY_DIR/Caddyfile || true
-
+            caddy validate --config $CADDY_DIR/Caddyfile
             systemctl enable caddy
             systemctl reload caddy || systemctl restart caddy
+            sleep 3
+            systemctl is-active --quiet caddy && echo "✅ Caddy running" || { journalctl -u caddy --no-pager -n 30; exit 1; }
 
             # ── Health check ──────────────────────────────────────────────
             echo "Waiting for API to start..."
