@@ -35,7 +35,12 @@ from app.middleware.auth import (
     clear_auth_cookies,
     get_current_user,
 )
-from app.services.central_auth import CentralAuthError, central_auth_enabled, request_password_reset
+from app.services.central_auth import (
+    CentralAuthError,
+    central_auth_enabled,
+    link_after_local_login,
+    request_password_reset,
+)
 from app.services.central_auth import authenticate as central_authenticate
 from app.services.central_auth import update_password as central_update_password
 from app.services.login_lockout import (
@@ -116,17 +121,27 @@ async def _verify_tenant_credentials(
             await _backfill_auth_user_id(conn, user_id, tokens.user_id)
             return LoginLockoutResult(ok=True, status=200, error="")
         except CentralAuthError:
-            if candidate["password_hash"]:
-                return await verify_login_with_lockout(
-                    conn,
-                    table="users",
-                    user_id=user_id,
-                    password=password,
+            if not candidate["password_hash"]:
+                return await record_login_attempt(
+                    conn, table="users", user_id=user_id, success=False
                 )
 
-            return await record_login_attempt(
-                conn, table="users", user_id=user_id, success=False
+            local = await verify_login_with_lockout(
+                conn,
+                table="users",
+                user_id=user_id,
+                password=password,
             )
+            if local.ok:
+                linked = await link_after_local_login(
+                    email=candidate["email"],
+                    password=password,
+                    auth_user_id=str(candidate["auth_user_id"])
+                    if candidate["auth_user_id"]
+                    else None,
+                )
+                await _backfill_auth_user_id(conn, user_id, linked)
+            return local
 
     return await verify_login_with_lockout(
         conn,

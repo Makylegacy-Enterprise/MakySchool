@@ -10,7 +10,7 @@ from app.lib.jwt_utils import (
     cookie_options,
     sign_superadmin_token,
 )
-from app.services.central_auth import CentralAuthError, central_auth_enabled
+from app.services.central_auth import CentralAuthError, central_auth_enabled, link_after_local_login
 from app.services.central_auth import authenticate as central_authenticate
 from app.services.login_lockout import (
     LoginLockoutResult,
@@ -76,16 +76,25 @@ async def _verify_superadmin_credentials(
             await _backfill_auth_user_id(conn, admin_id, tokens.user_id)
             return LoginLockoutResult(ok=True, status=200, error="")
         except CentralAuthError:
-            if admin["password_hash"]:
-                return await verify_login_with_lockout(
-                    conn,
-                    table="super_admins",
-                    user_id=admin_id,
-                    password=password,
+            if not admin["password_hash"]:
+                return await record_login_attempt(
+                    conn, table="super_admins", user_id=admin_id, success=False
                 )
-            return await record_login_attempt(
-                conn, table="super_admins", user_id=admin_id, success=False
+
+            local = await verify_login_with_lockout(
+                conn,
+                table="super_admins",
+                user_id=admin_id,
+                password=password,
             )
+            if local.ok:
+                linked = await link_after_local_login(
+                    email=admin["email"],
+                    password=password,
+                    auth_user_id=str(admin["auth_user_id"]) if admin["auth_user_id"] else None,
+                )
+                await _backfill_auth_user_id(conn, admin_id, linked)
+            return local
 
     return await verify_login_with_lockout(
         conn,

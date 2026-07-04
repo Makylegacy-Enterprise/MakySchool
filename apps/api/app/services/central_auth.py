@@ -309,3 +309,33 @@ async def sync_user_password(email: str, password: str, auth_user_id: str | None
     except CentralAuthError as exc:
         logger.warning("Central auth password sync failed for %s: %s", normalized, exc)
         raise
+
+
+async def link_after_local_login(
+    *,
+    email: str,
+    password: str,
+    auth_user_id: str | None = None,
+) -> str | None:
+    """
+    After a successful local-password login, provision/sync the account in Central Auth.
+
+    Best-effort: login already succeeded locally, so failures are logged and ignored.
+    Returns the central auth user id when linking succeeds.
+    """
+    if not central_auth_enabled():
+        return None
+
+    existing = str(auth_user_id) if auth_user_id else None
+    try:
+        linked = await sync_user_password(email, password, existing)
+        if linked:
+            logger.info("Linked %s to Central Auth after local login", email.strip().lower())
+        return linked
+    except CentralAuthError as exc:
+        logger.warning(
+            "Local login succeeded for %s but Central Auth link failed: %s",
+            email.strip().lower(),
+            exc,
+        )
+        return None
