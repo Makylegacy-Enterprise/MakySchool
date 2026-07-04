@@ -48,33 +48,79 @@ def _unwrap_data(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _extract_tokens(payload: dict[str, Any]) -> AuthTokens:
+def _token_dict_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Collect possible objects that may hold access/refresh tokens."""
     root = _unwrap_data(payload)
-    tokens = root.get("tokens") if isinstance(root.get("tokens"), dict) else root
+    candidates: list[dict[str, Any]] = []
+    for obj in (
+        root.get("tokens"),
+        root.get("session"),
+        root.get("data") if isinstance(root.get("data"), dict) else None,
+        root,
+        payload.get("tokens"),
+        payload.get("session"),
+        payload,
+    ):
+        if isinstance(obj, dict) and obj not in candidates:
+            candidates.append(obj)
+        if isinstance(obj, dict):
+            nested_session = obj.get("session")
+            if isinstance(nested_session, dict) and nested_session not in candidates:
+                candidates.append(nested_session)
+            nested_tokens = obj.get("tokens")
+            if isinstance(nested_tokens, dict) and nested_tokens not in candidates:
+                candidates.append(nested_tokens)
+    return candidates
 
-    access_token = (
-        tokens.get("access_token")
-        or root.get("access_token")
-        or payload.get("access_token")
-    )
-    if not access_token or not isinstance(access_token, str):
+
+def _pick_str(obj: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = obj.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
+def _extract_tokens(payload: dict[str, Any]) -> AuthTokens:
+    access_token: str | None = None
+    refresh_token: str | None = None
+    for obj in _token_dict_candidates(payload):
+        if not access_token:
+            access_token = _pick_str(obj, "access_token", "accessToken", "token")
+        if not refresh_token:
+            refresh_token = _pick_str(obj, "refresh_token", "refreshToken")
+        if access_token:
+            break
+
+    if not access_token:
+        logger.warning(
+            "Central Auth login response missing access token; keys=%s",
+            list(payload.keys()),
+        )
         raise CentralAuthError("Authentication response did not include an access token.")
 
-    refresh_token = tokens.get("refresh_token") or root.get("refresh_token")
+    root = _unwrap_data(payload)
     user = root.get("user") if isinstance(root.get("user"), dict) else {}
+    if not user:
+        for obj in _token_dict_candidates(payload):
+            if isinstance(obj.get("user"), dict):
+                user = obj["user"]
+                break
+
     user_id = (
         user.get("id")
         or user.get("user_id")
         or root.get("user_id")
         or root.get("id")
+        or payload.get("user_id")
     )
-    email = user.get("email") or root.get("email")
+    email = user.get("email") or root.get("email") or payload.get("email")
     if isinstance(email, str):
         email = email.lower().strip()
 
     return AuthTokens(
         access_token=access_token,
-        refresh_token=refresh_token if isinstance(refresh_token, str) else None,
+        refresh_token=refresh_token,
         user_id=str(user_id) if user_id else None,
         email=email if isinstance(email, str) else None,
     )

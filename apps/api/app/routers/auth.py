@@ -132,13 +132,12 @@ async def _verify_tenant_credentials(
                 user_id=user_id,
                 password=password,
             )
-            if local.ok:
+            # Only provision when Central Auth rejected credentials (legacy users).
+            if local.ok and not candidate["auth_user_id"]:
                 linked = await link_after_local_login(
                     email=candidate["email"],
                     password=password,
-                    auth_user_id=str(candidate["auth_user_id"])
-                    if candidate["auth_user_id"]
-                    else None,
+                    auth_user_id=None,
                 )
                 await _backfill_auth_user_id(conn, user_id, linked)
             return local

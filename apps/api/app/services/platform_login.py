@@ -87,11 +87,11 @@ async def _verify_superadmin_credentials(
                 user_id=admin_id,
                 password=password,
             )
-            if local.ok:
+            if local.ok and not admin["auth_user_id"]:
                 linked = await link_after_local_login(
                     email=admin["email"],
                     password=password,
-                    auth_user_id=str(admin["auth_user_id"]) if admin["auth_user_id"] else None,
+                    auth_user_id=None,
                 )
                 await _backfill_auth_user_id(conn, admin_id, linked)
             return local

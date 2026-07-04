@@ -89,10 +89,16 @@ async def get_current_superadmin(request: Request) -> dict:
 
 
 def clear_auth_cookies(response) -> None:
+    # Must match attributes used in cookie_options() or browsers keep Secure cookies.
+    delete_kwargs = {
+        "path": "/",
+        "secure": settings.is_production,
+        "samesite": "lax",
+    }
     for name in (
         settings.SUPERADMIN_ACCESS_COOKIE,
         settings.SUPERADMIN_REFRESH_COOKIE,
         settings.TENANT_ACCESS_COOKIE,
         settings.TENANT_REFRESH_COOKIE,
     ):
-        response.delete_cookie(name, path="/")
+        response.delete_cookie(name, **delete_kwargs)
