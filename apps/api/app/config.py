@@ -7,10 +7,9 @@ RateLimitStrategy = Literal["fixed-window", "moving-window", "sliding-window-cou
 
 _API_ROOT = Path(__file__).resolve().parents[1]
 
-# In the monorepo the .env lives 3 levels up (repo root).
-# In Docker the working dir IS the api root, so fall back to that.
-_candidate_env = Path(__file__).resolve().parents[3] / ".env"
-_ENV_FILE = str(_candidate_env) if _candidate_env.exists() else str(_API_ROOT / ".env")
+_parents = Path(__file__).resolve().parents
+_candidate_env = (_parents[3] / ".env") if len(_parents) > 3 else None
+_ENV_FILE = str(_candidate_env) if _candidate_env and _candidate_env.exists() else str(_API_ROOT / ".env")
 
 
 class Settings(BaseSettings):
