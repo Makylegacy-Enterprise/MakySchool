@@ -121,14 +121,13 @@ jobs:
 
             cp /tmp/makyschool-caddy/Caddyfile.production $CADDY_DIR/conf.d/makyschool-api.caddy
 
-            # Write root Caddyfile (no leading spaces — heredoc must be unindented)
-            cat > $CADDY_DIR/Caddyfile << 'CADDYEOF'
-{
+            # Write root Caddyfile
+            printf '{
     email admin@makylegacy.com
 }
 
 import /etc/caddy/conf.d/*.caddy
-CADDYEOF
+' > $CADDY_DIR/Caddyfile
 
             caddy validate --config $CADDY_DIR/Caddyfile
             systemctl enable caddy
