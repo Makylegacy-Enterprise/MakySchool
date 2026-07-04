@@ -5,13 +5,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RateLimitStrategy = Literal["fixed-window", "moving-window", "sliding-window-counter"]
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
 _API_ROOT = Path(__file__).resolve().parents[1]
+
+_parents = Path(__file__).resolve().parents
+_candidate_env = (_parents[3] / ".env") if len(_parents) > 3 else None
+_ENV_FILE = str(_candidate_env) if _candidate_env and _candidate_env.exists() else str(_API_ROOT / ".env")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(_REPO_ROOT / ".env"),
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=True,
