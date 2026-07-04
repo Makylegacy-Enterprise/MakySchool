@@ -104,8 +104,12 @@ jobs:
             # Caddy config
             mkdir -p /etc/caddy/conf.d
             echo 'school-api.makylegacy.com { reverse_proxy localhost:4000 }' > /etc/caddy/conf.d/makyschool-api.caddy
-            echo '{ email admin@makylegacy.com }' > /etc/caddy/Caddyfile
-            echo 'import /etc/caddy/conf.d/*.caddy' >> /etc/caddy/Caddyfile
+            printf '{
+  email admin@makylegacy.com
+}
+
+import /etc/caddy/conf.d/*.caddy
+' > /etc/caddy/Caddyfile
 
             caddy validate --config /etc/caddy/Caddyfile
             systemctl enable caddy
