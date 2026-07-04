@@ -15,9 +15,7 @@ export const siteConfig = {
   locale: "en_UG",
 } as const;
 
-export const siteUrl = trimTrailingSlash(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://school.makylegacy.com",
-);
+export const siteUrl = "https://school.makylegacy.com";
 
 export const contactPageUrl = "/contact";
 export const bookDemoUrl = "/contact#contact-form";
