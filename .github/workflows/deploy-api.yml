@@ -121,6 +121,10 @@ jobs:
               curl -sf http://localhost:4000/api/v1/ || echo "API warming up"
             else
               echo "Container failed to start"
-              $COMPOSE_CMD logs --tail=50
+              docker logs makyschool-api --tail=80
+              $COMPOSE_CMD logs --tail=80
               exit 1
             fi
+
+            # Show startup logs regardless
+            docker logs makyschool-api --tail=40
