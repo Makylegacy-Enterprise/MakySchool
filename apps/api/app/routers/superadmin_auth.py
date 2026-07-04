@@ -16,6 +16,9 @@ from app.middleware.auth import (
     extract_superadmin_token,
     get_current_superadmin,
 )
+from app.services.central_auth import CentralAuthError, central_auth_enabled
+from app.services.central_auth import authenticate as central_authenticate
+from app.services.central_auth import update_password as central_update_password
 from app.services.platform_login import authenticate_superadmin
 
 router = APIRouter()
@@ -132,7 +135,7 @@ async def superadmin_change_password(
         ) from None
 
     admin = await conn.fetchrow(
-        "SELECT id, password_hash FROM super_admins WHERE id = $1 LIMIT 1",
+        "SELECT id, email, password_hash, auth_user_id FROM super_admins WHERE id = $1 LIMIT 1",
         uuid.UUID(str(payload["sub"])),
     )
     if not admin:
@@ -141,11 +144,37 @@ async def superadmin_change_password(
             detail={"error": "Not authenticated"},
         )
 
-    if not verify_password(body.currentPassword, admin["password_hash"]):
+    auth_tokens = None
+    if admin["password_hash"]:
+        if not verify_password(body.currentPassword, admin["password_hash"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "Current password is incorrect"},
+            )
+    elif central_auth_enabled():
+        try:
+            auth_tokens = await central_authenticate(admin["email"], body.currentPassword)
+        except CentralAuthError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "Current password is incorrect"},
+            ) from None
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": "Current password is incorrect"},
         )
+
+    if central_auth_enabled():
+        try:
+            if auth_tokens is None:
+                auth_tokens = await central_authenticate(admin["email"], body.currentPassword)
+            await central_update_password(auth_tokens.access_token, body.newPassword)
+        except CentralAuthError as exc:
+            raise HTTPException(
+                status_code=exc.status,
+                detail={"error": str(exc), "code": exc.code or "AUTH_SERVICE_ERROR"},
+            ) from exc
 
     password_hash = hash_password(body.newPassword)
     await conn.execute(

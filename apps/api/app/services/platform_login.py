@@ -10,7 +10,14 @@ from app.lib.jwt_utils import (
     cookie_options,
     sign_superadmin_token,
 )
-from app.services.login_lockout import verify_login_with_lockout
+from app.services.central_auth import CentralAuthError, central_auth_enabled
+from app.services.central_auth import authenticate as central_authenticate
+from app.services.login_lockout import (
+    LoginLockoutResult,
+    ensure_not_locked,
+    record_login_attempt,
+    verify_login_with_lockout,
+)
 
 
 def platform_app_url() -> str:
@@ -25,6 +32,69 @@ async def is_superadmin_email(conn: asyncpg.Connection, email: str) -> bool:
     return row is not None
 
 
+async def _backfill_auth_user_id(
+    conn: asyncpg.Connection,
+    admin_id: uuid.UUID,
+    auth_user_id: str | None,
+) -> None:
+    if not auth_user_id:
+        return
+    try:
+        parsed = uuid.UUID(str(auth_user_id))
+    except ValueError:
+        return
+    await conn.execute(
+        """
+        UPDATE super_admins
+        SET auth_user_id = $1
+        WHERE id = $2 AND auth_user_id IS NULL
+        """,
+        parsed,
+        admin_id,
+    )
+
+
+async def _verify_superadmin_credentials(
+    conn: asyncpg.Connection,
+    admin: asyncpg.Record,
+    password: str,
+) -> LoginLockoutResult:
+    admin_id = admin["id"]
+
+    if central_auth_enabled():
+        locked = await ensure_not_locked(conn, table="super_admins", user_id=admin_id)
+        if locked:
+            return locked
+
+        try:
+            tokens = await central_authenticate(admin["email"], password)
+            lockout = await record_login_attempt(
+                conn, table="super_admins", user_id=admin_id, success=True
+            )
+            if not lockout.ok:
+                return lockout
+            await _backfill_auth_user_id(conn, admin_id, tokens.user_id)
+            return LoginLockoutResult(ok=True, status=200, error="")
+        except CentralAuthError:
+            if admin["password_hash"]:
+                return await verify_login_with_lockout(
+                    conn,
+                    table="super_admins",
+                    user_id=admin_id,
+                    password=password,
+                )
+            return await record_login_attempt(
+                conn, table="super_admins", user_id=admin_id, success=False
+            )
+
+    return await verify_login_with_lockout(
+        conn,
+        table="super_admins",
+        user_id=admin_id,
+        password=password,
+    )
+
+
 async def authenticate_superadmin(
     conn: asyncpg.Connection,
     email: str,
@@ -33,18 +103,18 @@ async def authenticate_superadmin(
 ) -> dict:
     normalized = email.lower().strip()
     admin = await conn.fetchrow(
-        "SELECT id, email, password_hash, name FROM super_admins WHERE LOWER(email) = LOWER($1) LIMIT 1",
+        """
+        SELECT id, email, password_hash, name, auth_user_id
+        FROM super_admins
+        WHERE LOWER(email) = LOWER($1)
+        LIMIT 1
+        """,
         normalized,
     )
     if not admin:
         return {"ok": False, "status": 401, "error": "Invalid credentials"}
 
-    lockout = await verify_login_with_lockout(
-        conn,
-        table="super_admins",
-        user_id=admin["id"],
-        password=password,
-    )
+    lockout = await _verify_superadmin_credentials(conn, admin, password)
     if not lockout.ok:
         result: dict = {"ok": False, "status": lockout.status, "error": lockout.error}
         if lockout.code:
