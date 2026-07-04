@@ -5,13 +5,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RateLimitStrategy = Literal["fixed-window", "moving-window", "sliding-window-counter"]
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
 _API_ROOT = Path(__file__).resolve().parents[1]
+
+# In the monorepo the .env lives 3 levels up (repo root).
+# In Docker the working dir IS the api root, so fall back to that.
+_candidate_env = Path(__file__).resolve().parents[3] / ".env"
+_ENV_FILE = str(_candidate_env) if _candidate_env.exists() else str(_API_ROOT / ".env")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(_REPO_ROOT / ".env"),
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=True,
