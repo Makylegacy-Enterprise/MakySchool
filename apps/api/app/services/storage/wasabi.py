@@ -64,8 +64,6 @@ class WasabiStorageBackend:
     ) -> None:
         _, _, ClientError, BotoCoreError = _import_boto()
         extra: dict[str, Any] = {"ContentType": content_type}
-        if content_length is not None:
-            extra["ContentLength"] = content_length
         try:
             _get_client().upload_fileobj(
                 fileobj,

@@ -57,6 +57,8 @@ export type ClassOption = {
   stream: string | null;
 };
 
+import type { ImportRowError } from "@makyschool/shared/types";
+
 export type CreateStudentResponse = {
   student: {
     id: string;
@@ -68,11 +70,11 @@ export type CreateStudentResponse = {
   };
 };
 
-export type ImportRowError = {
-  row: number;
-  field: string;
-  message: string;
-};
+export type {
+  ImportPreviewResponse,
+  ImportRowError,
+  ImportPreviewDuplicate,
+} from "@makyschool/shared/types";
 
 export type ImportErrorResponse = {
   error: string;

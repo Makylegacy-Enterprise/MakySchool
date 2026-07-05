@@ -8,13 +8,14 @@ type DashboardPageProps = {
   title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  maxWidth?: "lg" | "7xl";
+  maxWidth?: "lg" | "2xl" | "7xl";
   /** When true, skips outer padding (parent layout already provides it). */
   embedded?: boolean;
 };
 
 const maxWidthClass = {
   lg: "max-w-lg",
+  "2xl": "max-w-2xl",
   "7xl": "max-w-7xl",
 } as const;
 

@@ -6,10 +6,12 @@ import uuid
 from datetime import date
 from typing import Annotated, Any
 
+import asyncio
+
 import asyncpg
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db.pool import get_db, get_pool
 from app.lib.permissions import can
@@ -17,8 +19,10 @@ from app.lib.rate_limit import get_school_key, limiter
 from app.lib.sequences import generate_learner_id
 from app.lib.teacher_assignments import format_class_name
 from app.lib.uploads import ALLOWED_STUDENT_PHOTO_TYPES, save_student_photo
+from app.lib.storage_urls import enrich_student_media
 from app.lib.user_sql import USER_DISPLAY_NAME_SQL
 from app.middleware.subscription_guard import require_tenant_with_subscription
+from app.services.students.import_service import confirm_import, preview_import
 
 router = APIRouter()
 logger = logging.getLogger("makyschool")
@@ -58,6 +62,11 @@ class WithdrawBody(BaseModel):
 
 class ReinstateBody(BaseModel):
     class_id: uuid.UUID
+
+
+class ConfirmImportBody(BaseModel):
+    job_id: uuid.UUID
+    duplicate_strategy: str = Field(default="skip", pattern="^(skip|import_all)$")
 
 
 def _serialize_row(row: asyncpg.Record) -> dict[str, Any]:
@@ -326,8 +335,8 @@ async def download_import_template(ctx: TenantCtx):
     csv_content = "\n".join(
         [
             "name,dob,gender,class,parent_name,parent_phone,parent_email",
-            "John Doe,2015-03-12,male,P3A,James Doe,+256701234567,james@email.com",
-            "Jane Smith,2014-07-20,female,P3A,Grace Smith,+256702345678,",
+            "John Doe,2015-03-12,male,S1A,James Doe,+256701234567,james@email.com",
+            "Jane Smith,2014-07-20,female,S1A,Grace Smith,+256702345678,",
         ]
     )
     return Response(
@@ -337,13 +346,125 @@ async def download_import_template(ctx: TenantCtx):
     )
 
 
-@router.post("/import", status_code=status.HTTP_201_CREATED)
-@limiter.limit("2/minute", key_func=get_school_key)
-async def import_students(
+@router.post("/import/preview")
+@limiter.limit("5/minute", key_func=get_school_key)
+async def preview_student_import(
     request: Request,
     ctx: TenantCtx,
     file: UploadFile = File(...),
 ):
+    school_id, actor = ctx
+
+    if not can(actor["role"], "manageStaff"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "You do not have permission to import students.",
+                "code": "FORBIDDEN",
+            },
+        )
+
+    raw = await file.read()
+    if not raw.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "The CSV file is empty.",
+                "code": "VALIDATION_ERROR",
+                "fields": {"file": "The CSV file is empty."},
+            },
+        )
+
+    if len(raw) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "CSV file is too large (max 10 MB).", "code": "VALIDATION_ERROR"},
+        )
+
+    upload_name = (file.filename or "student_import.csv").strip() or "student_import.csv"
+
+    pool = await get_pool()
+    try:
+        async with pool.acquire() as conn:
+            preview = await preview_import(
+                conn,
+                school_id=school_id,
+                actor_id=uuid.UUID(str(actor["sub"])),
+                filename=upload_name,
+                raw=raw,
+            )
+    except ValueError as exc:
+        message = str(exc)
+        if message.startswith("Missing required columns"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": message, "code": "VALIDATION_ERROR"},
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": message, "code": "VALIDATION_ERROR"},
+        ) from exc
+    except Exception as exc:
+        logger.exception("import preview failed")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "Could not parse the CSV file.", "code": "VALIDATION_ERROR"},
+        ) from exc
+
+    return {"data": preview}
+
+
+@router.post("/import/confirm", status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute", key_func=get_school_key)
+async def confirm_student_import(
+    request: Request,
+    body: ConfirmImportBody,
+    ctx: TenantCtx,
+):
+    school_id, actor = ctx
+
+    if not can(actor["role"], "manageStaff"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "You do not have permission to import students.",
+                "code": "FORBIDDEN",
+            },
+        )
+
+    pool = await get_pool()
+    try:
+        async with pool.acquire() as conn:
+            result = await confirm_import(
+                conn,
+                school_id=school_id,
+                actor_id=uuid.UUID(str(actor["sub"])),
+                job_id=body.job_id,
+                duplicate_strategy=body.duplicate_strategy,  # type: ignore[arg-type]
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": str(exc), "code": "IMPORT_CONFIRM_FAILED"},
+        ) from exc
+    except Exception as exc:
+        logger.exception("import confirm failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Something went wrong. Please try again.", "code": "SERVER_ERROR"},
+        ) from exc
+
+    return {"data": result}
+
+
+@router.post("/import", status_code=status.HTTP_201_CREATED, deprecated=True)
+@limiter.limit("2/minute", key_func=get_school_key)
+async def import_students_legacy(
+    request: Request,
+    ctx: TenantCtx,
+    file: UploadFile = File(...),
+):
+    """Legacy single-step import — prefer /import/preview then /import/confirm."""
     school_id, actor = ctx
 
     if not can(actor["role"], "manageStaff"):
@@ -366,234 +487,41 @@ async def import_students(
         )
 
     raw = await file.read()
-    if len(raw) > 5 * 1024 * 1024:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "CSV file is too large.", "code": "VALIDATION_ERROR"},
-        )
-
-    try:
-        text = raw.decode("utf-8-sig")
-        reader = csv.DictReader(io.StringIO(text))
-        if not reader.fieldnames:
-            raise ValueError("empty")
-        reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
-        records = list(reader)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "Could not parse the CSV file.", "code": "VALIDATION_ERROR"},
-        )
-
-    headers = list(records[0].keys()) if records else []
-    missing_headers = [h for h in CSV_REQUIRED_HEADERS if h not in headers]
-    if missing_headers:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": f"CSV is missing required columns: {', '.join(missing_headers)}",
-                "code": "VALIDATION_ERROR",
-            },
-        )
-
     pool = await get_pool()
     async with pool.acquire() as conn:
-        _by_id, by_name = await _load_class_map(conn, school_id)
-
-    row_errors: list[dict[str, Any]] = []
-    valid_rows: list[dict[str, Any]] = []
-
-    for index, record in enumerate(records):
-        row_num = index + 2
-        name = (record.get("name") or "").strip()
-        class_label = (record.get("class") or "").strip()
-        parent_name = (record.get("parent_name") or "").strip()
-        dob_raw = (record.get("dob") or "").strip()
-        gender_raw = (record.get("gender") or "").strip()
-        parent_phone = (record.get("parent_phone") or "").strip()
-        parent_email = (record.get("parent_email") or "").strip()
-        relationship_raw = (record.get("guardian_relationship") or "").strip()
-
-        if not name:
-            row_errors.append({"row": row_num, "field": "name", "message": f"Row {row_num} is missing a student name."})
-        elif len(name) < 2 or len(name) > 100:
-            row_errors.append({"row": row_num, "field": "name", "message": f"Row {row_num} has an invalid name."})
-
-        class_id: str | None = None
-        if not class_label:
-            row_errors.append({"row": row_num, "field": "class", "message": f"Row {row_num} is missing a class."})
-        else:
-            class_id = by_name.get(class_label.lower())
-            if not class_id:
-                row_errors.append({
-                    "row": row_num,
-                    "field": "class",
-                    "message": f'Row {row_num}: class "{class_label}" was not found in your school.',
-                })
-
-        if not parent_name:
-            row_errors.append({
-                "row": row_num,
-                "field": "parent_name",
-                "message": f"Row {row_num} is missing a parent name.",
-            })
-        elif len(parent_name) < 2 or len(parent_name) > 100:
-            row_errors.append({
-                "row": row_num,
-                "field": "parent_name",
-                "message": f"Row {row_num} has an invalid parent name.",
-            })
-
-        date_of_birth: date | None = None
-        if dob_raw:
-            try:
-                date_of_birth = date.fromisoformat(dob_raw[:10])
-            except ValueError:
-                row_errors.append({
-                    "row": row_num,
-                    "field": "dob",
-                    "message": f"Row {row_num} has an invalid date of birth.",
-                })
-
-        gender = _normalize_gender(gender_raw)
-        if gender_raw and not gender:
-            row_errors.append({
-                "row": row_num,
-                "field": "gender",
-                "message": f"Row {row_num} has an invalid gender.",
-            })
-
-        if parent_phone and not PHONE_RE.match(parent_phone):
-            row_errors.append({
-                "row": row_num,
-                "field": "parent_phone",
-                "message": f"Row {row_num} has an invalid phone number.",
-            })
-
-        if any(err["row"] == row_num for err in row_errors):
-            continue
-
-        valid_rows.append({
-            "full_name": name,
-            "date_of_birth": date_of_birth,
-            "gender": gender,
-            "class_id": uuid.UUID(class_id),
-            "guardian_name": parent_name,
-            "guardian_phone": parent_phone or None,
-            "guardian_email": parent_email or None,
-            "guardian_relationship": _normalize_relationship(relationship_raw),
-        })
-
-    if row_errors:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "Validation failed. Fix the errors below and re-upload.",
-                "code": "IMPORT_VALIDATION_FAILED",
-                "row_errors": row_errors,
-                "summary": (
-                    f"{len(row_errors)} of {len(records)} rows have errors. "
-                    "No students were imported."
-                ),
-            },
+        preview = await preview_import(
+            conn,
+            school_id=school_id,
+            actor_id=uuid.UUID(str(actor["sub"])),
+            filename=file.filename,
+            raw=raw,
         )
-
-    if not valid_rows:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "The CSV file contains no student rows.", "code": "VALIDATION_ERROR"},
-        )
-
-    import_id = uuid.uuid4()
-    actor_id = uuid.UUID(str(actor["sub"]))
-
-    try:
-        async with pool.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute(
-                    """
-                    INSERT INTO student_import_logs (
-                      id, school_id, imported_by, filename, total_rows, status
-                    ) VALUES ($1, $2, $3, $4, $5, 'pending')
-                    """,
-                    import_id,
-                    school_id,
-                    actor_id,
-                    file.filename,
-                    len(valid_rows),
-                )
-
-                for row in valid_rows:
-                    student_id = uuid.uuid4()
-                    learner_id = await generate_learner_id(conn, school_id)
-
-                    await conn.execute(
-                        """
-                        INSERT INTO students (
-                          id, school_id, learner_id, full_name, date_of_birth, gender,
-                          current_class_id, status, created_by, created_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, NOW(), NOW())
-                        """,
-                        student_id,
-                        school_id,
-                        learner_id,
-                        row["full_name"],
-                        row["date_of_birth"],
-                        row["gender"],
-                        row["class_id"],
-                        actor_id,
-                    )
-
-                    await conn.execute(
-                        """
-                        INSERT INTO student_guardians (
-                          id, school_id, student_id, full_name, phone, email,
-                          relationship, is_primary
-                        ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true)
-                        """,
-                        school_id,
-                        student_id,
-                        row["guardian_name"],
-                        row["guardian_phone"],
-                        row["guardian_email"],
-                        row["guardian_relationship"],
-                    )
-
-                    await conn.execute(
-                        """
-                        INSERT INTO student_class_history (
-                          id, school_id, student_id, class_id, enrolled_at, reason, moved_by
-                        ) VALUES (gen_random_uuid(), $1, $2, $3, NOW(), 'initial_enrollment', $4)
-                        """,
-                        school_id,
-                        student_id,
-                        row["class_id"],
-                        actor_id,
-                    )
-
-                await conn.execute(
-                    """
-                    UPDATE student_import_logs
-                    SET imported = $1, failed = 0, status = 'complete', errors = '[]'::jsonb
-                    WHERE id = $2
-                    """,
-                    len(valid_rows),
-                    import_id,
-                )
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Something went wrong. Please try again.",
-                "code": "SERVER_ERROR",
-            },
+        if preview["error_count"] > 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "Validation failed. Fix the errors below and re-upload.",
+                    "code": "IMPORT_VALIDATION_FAILED",
+                    "row_errors": preview["errors"],
+                    "summary": (
+                        f"{preview['error_count']} of {preview['total_rows']} rows have errors. "
+                        "No students were imported."
+                    ),
+                },
+            )
+        result = await confirm_import(
+            conn,
+            school_id=school_id,
+            actor_id=uuid.UUID(str(actor["sub"])),
+            job_id=uuid.UUID(preview["job_id"]),
+            duplicate_strategy="skip",
         )
 
     return {
         "data": {
-            "message": f"{len(valid_rows)} students imported successfully.",
-            "imported": len(valid_rows),
-            "import_id": str(import_id),
+            "message": result["message"],
+            "imported": result["imported"],
+            "import_id": result["job_id"],
         }
     }
 
@@ -778,7 +706,9 @@ async def list_students(
 
     return {
         "data": {
-            "students": [_map_list_row(row) for row in rows],
+            "students": await asyncio.gather(
+                *[enrich_student_media(_map_list_row(row), school_id) for row in rows]
+            ),
             "total": int(total or 0),
             "page": page,
             "limit": limit,
@@ -954,7 +884,7 @@ async def get_student(
             detail={"error": "Student not found in your school.", "code": "NOT_FOUND"},
         )
 
-    return {"data": student}
+    return {"data": await enrich_student_media(student, school_id)}
 
 
 @router.patch("/{student_id}")

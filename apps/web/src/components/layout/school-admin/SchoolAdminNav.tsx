@@ -10,6 +10,7 @@ import {
   type GroupedNavItem,
 } from "@/components/layout/shared/GroupedSidebarNav";
 import { isFeesPath } from "@/lib/roles/fees-nav";
+import { isSettingsPath } from "@/lib/roles/settings-nav";
 import {
   filterNavGroupsByRole,
   schoolAdminNavGroups,
@@ -76,7 +77,12 @@ export function SchoolAdminSidebarNav({
     <GroupedSidebarNav
       groups={groups}
       storagePrefix="school-admin"
-      expandItemWhen={(pathname) => (isFeesPath(pathname) ? ["/dashboard/fees"] : [])}
+      expandItemWhen={(pathname) => {
+        const expanded: string[] = [];
+        if (isFeesPath(pathname)) expanded.push("/dashboard/fees");
+        if (isSettingsPath(pathname)) expanded.push("/dashboard/settings");
+        return expanded;
+      }}
     />
   );
 }

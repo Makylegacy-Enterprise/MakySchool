@@ -1,13 +1,16 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Building2,
   CalendarDays,
   CircleDollarSign,
   ClipboardList,
   GraduationCap,
+  Hash,
   Landmark,
   Layers,
   LayoutDashboard,
   Library,
+  ListOrdered,
   Receipt,
   Settings2,
   ShieldCheck,
@@ -36,6 +39,14 @@ const schoolAdminFeesNavChildren: NavItem[] = [
   { href: "/dashboard/fees/other-income", label: "Other income", exact: false, requiredAction: "viewFees" },
   { href: "/dashboard/fees/budget", label: "Budget", exact: false, requiredAction: "viewBudget" },
   { href: "/dashboard/fees/reports", label: "Reports", exact: false, requiredAction: "viewReports" },
+];
+
+const schoolAdminSettingsNavChildren: NavItem[] = [
+  { href: "/dashboard/settings", label: "Profile", icon: Building2, exact: true, requiredAction: "manageSchool" },
+  { href: "/dashboard/settings/academic", label: "Academic year", icon: CalendarDays, exact: false, requiredAction: "manageSchool" },
+  { href: "/dashboard/settings/grading", label: "Grading scale", icon: ListOrdered, exact: false, requiredAction: "manageSchool" },
+  { href: "/dashboard/settings/students", label: "Student IDs", icon: Hash, exact: false, requiredAction: "manageSchool" },
+  { href: "/dashboard/settings/accounts", label: "Chart of accounts", icon: Landmark, exact: false, requiredAction: "viewAccounts" },
 ];
 
 export type NavGroup = {
@@ -155,7 +166,8 @@ export const schoolAdminNavGroups: NavGroup[] = [
         label: "Settings",
         icon: Settings2,
         exact: false,
-        requiredAction: "manageSchool",
+        requiredAction: null,
+        children: schoolAdminSettingsNavChildren,
       },
     ],
   },

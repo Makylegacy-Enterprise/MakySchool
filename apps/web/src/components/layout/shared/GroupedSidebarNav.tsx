@@ -85,13 +85,17 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
+      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
         active
           ? "bg-theme-accent text-on-accent shadow-theme-accent"
           : "text-theme-muted hover:bg-nav-hover hover:text-theme-primary"
-      } ${nested ? "text-[13px]" : ""}`}
+      } ${nested ? "py-1.5 text-[13px]" : ""}`}
     >
-      {Icon ? <Icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.25 : 2} /> : null}
+      {Icon ? (
+        <Icon className={`shrink-0 ${nested ? "h-3.5 w-3.5" : "h-4 w-4"}`} strokeWidth={active ? 2.25 : 2} />
+      ) : (
+        <span className={`shrink-0 rounded-full bg-theme-faint ${nested ? "h-1.5 w-1.5" : "h-2 w-2"}`} />
+      )}
       {item.label}
     </Link>
   );
@@ -128,7 +132,7 @@ function NavExpandableItem({
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && item.children?.length ? (
-        <div className="ml-5 space-y-0.5 border-l border-theme pl-3">
+        <div className="ml-2 space-y-0.5 border-l-2 border-theme/60 pl-2.5">
           {item.children.map((child) => (
             <NavLink key={child.href} item={child} pathname={pathname} nested />
           ))}

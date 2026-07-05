@@ -23,7 +23,7 @@ const TAB_OPTIONS: Array<{ value: ChartAccountType; label: string }> = [
   { value: "expense", label: "Expense" },
 ];
 
-export function ChartOfAccountsContent() {
+export function ChartOfAccountsContent({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [tab, setTab] = useState<ChartAccountType>("income");
   const [addOpen, setAddOpen] = useState(false);
@@ -54,18 +54,29 @@ export function ChartOfAccountsContent() {
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        title="Chart of accounts"
-        description="Income and expense accounts for invoicing, other income, and budgets."
-        actions={
+      {!embedded ? (
+        <PageHeader
+          title="Chart of accounts"
+          description="Income and expense accounts for invoicing, other income, and budgets."
+          actions={
+            <CanDo action="manageAccounts">
+              <button type="button" className="ms-btn-primary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add account
+              </button>
+            </CanDo>
+          }
+        />
+      ) : (
+        <div className="flex justify-end">
           <CanDo action="manageAccounts">
             <button type="button" className="ms-btn-primary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
               Add account
             </button>
           </CanDo>
-        }
-      />
+        </div>
+      )}
 
       <DataListPanel
         toolbar={

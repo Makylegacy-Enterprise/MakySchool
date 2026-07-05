@@ -48,6 +48,75 @@ export interface SetupStatusResponse {
   school?: SchoolRecord | null;
 }
 
+export type LearnerIdMode = "sequential" | "random";
+
+export interface StudentIdSettings {
+  prefix: string | null;
+  suffixLength: number;
+  mode: LearnerIdMode;
+}
+
+export interface GradingBandSettings {
+  id?: string;
+  label: string;
+  minScore: number;
+  maxScore: number;
+  description: string | null;
+}
+
+export interface TermSettings {
+  id?: string;
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  isCurrent?: boolean;
+}
+
+export interface AcademicYearSettings {
+  id: string | null;
+  year: number | null;
+  terms: TermSettings[];
+}
+
+export interface SchoolSettingsResponse {
+  profile: SchoolRecord & {
+    learner_id_prefix?: string | null;
+    learner_id_suffix_length?: number;
+    learner_id_mode?: LearnerIdMode;
+    setup_completed_at?: string | null;
+  };
+  academic_year: AcademicYearSettings;
+  grading_scale: { bands: GradingBandSettings[] };
+  student_ids: StudentIdSettings;
+}
+
+export interface ImportPreviewDuplicate {
+  row: number;
+  type: "in_file" | "existing";
+  matched_row?: number;
+  fingerprint: string;
+  message: string;
+}
+
+export interface ImportPreviewResponse {
+  job_id: string | null;
+  total_rows: number;
+  valid_count: number;
+  error_count: number;
+  duplicate_count: number;
+  can_confirm: boolean;
+  errors: ImportRowError[];
+  duplicates: ImportPreviewDuplicate[];
+  sample_valid_rows: Array<Record<string, unknown>>;
+}
+
+export interface ImportRowError {
+  row: number;
+  field: string;
+  code?: string;
+  message: string;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   page: number;
