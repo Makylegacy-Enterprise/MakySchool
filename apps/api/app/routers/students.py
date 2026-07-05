@@ -863,8 +863,8 @@ async def create_student(
             photo_url: str | None = None
             if photo_buffer and photo_mimetype:
                 photo_url = await save_student_photo(
-                    str(school_id),
-                    str(student_id),
+                    school_id,
+                    student_id,
                     photo_buffer,
                     photo_mimetype,
                 )

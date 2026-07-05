@@ -4,10 +4,20 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.services.storage.errors import StorageError
+
 logger = logging.getLogger("makyschool")
 
 
 def add_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(StorageError)
+    async def storage_error_handler(_request: Request, exc: StorageError):
+        logger.warning("Storage error: %s", exc.message)
+        return JSONResponse(
+            status_code=exc.status,
+            content={"error": exc.message, "code": exc.code},
+        )
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(_request: Request, exc: HTTPException):
         detail = exc.detail

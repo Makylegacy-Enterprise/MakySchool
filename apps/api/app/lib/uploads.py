@@ -1,15 +1,17 @@
-import re
-import time
+from __future__ import annotations
+
 import uuid
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 
 from app.config import settings
-
-ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
-ALLOWED_STUDENT_PHOTO_TYPES = ALLOWED_IMAGE_TYPES
-_MAX_BYTES = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+from app.services.storage import get_tenant_storage
+from app.services.storage.keys import is_storage_object_key, legacy_path_to_key
+from app.services.storage.service import (  # noqa: F401 — re-exported for routers
+    ALLOWED_IMAGE_TYPES,
+    ALLOWED_STUDENT_PHOTO_TYPES,
+)
 
 _EXT_BY_MIME = {
     "image/jpeg": ".jpg",
@@ -18,59 +20,57 @@ _EXT_BY_MIME = {
 }
 
 
-def _safe_filename(original: str) -> str:
-    safe = re.sub(r"[^a-zA-Z0-9._-]", "-", original)
-    return f"{int(time.time() * 1000)}-{safe}"
-
-
-def _validate_image(file: UploadFile) -> None:
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "Only JPEG, PNG, and WebP images are allowed"},
-        )
-
-
-async def save_school_image(school_id: uuid.UUID, file: UploadFile) -> str:
-    _validate_image(file)
-    content = await file.read()
-    if len(content) > _MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": f"File exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit"},
-        )
-
-    destination = Path(settings.UPLOAD_DIR) / "schools" / str(school_id)
-    destination.mkdir(parents=True, exist_ok=True)
-
-    filename = _safe_filename(file.filename or "upload")
-    file_path = destination / filename
-    file_path.write_bytes(content)
-
-    return f"/uploads/schools/{school_id}/{filename}"
+async def save_school_image(
+    school_id: uuid.UUID,
+    file: UploadFile,
+    *,
+    category: str,
+) -> str:
+    """Upload a school logo or stamp; returns the object key stored in the database."""
+    storage = get_tenant_storage()
+    return await storage.upload_upload_file(school_id, category, file)
 
 
 async def save_student_photo(
     school_id: uuid.UUID,
     student_id: uuid.UUID,
-    file: UploadFile,
+    content: bytes,
+    content_type: str,
 ) -> str:
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_STUDENT_PHOTO_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "Only JPEG, PNG, and WebP images are allowed"},
-        )
-    content = await file.read()
-    if len(content) > _MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": f"File exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit"},
-        )
-    ext = _EXT_BY_MIME.get(content_type, ".jpg")
-    destination = Path(settings.UPLOAD_DIR) / "schools" / str(school_id) / "students" / str(student_id)
-    destination.mkdir(parents=True, exist_ok=True)
-    filename = f"photo{ext}"
-    (destination / filename).write_bytes(content)
-    return f"/uploads/schools/{school_id}/students/{student_id}/{filename}"
+    """Upload a student profile photo; returns the object key stored in the database."""
+    storage = get_tenant_storage()
+    ext = _EXT_BY_MIME.get(content_type.lower().split(";")[0].strip(), ".jpg")
+    return await storage.upload_bytes(
+        school_id,
+        "students",
+        content,
+        content_type,
+        str(student_id),
+        f"profile{ext}",
+    )
+
+
+def _normalize_delete_target(stored_value: str) -> tuple[str | None, Path | None]:
+    if is_storage_object_key(stored_value):
+        return stored_value, None
+    legacy_key = legacy_path_to_key(stored_value)
+    if legacy_key:
+        return legacy_key, None
+    if stored_value.startswith("/uploads/"):
+        relative = stored_value[len("/uploads/") :]
+        return None, Path(settings.UPLOAD_DIR) / relative
+    return None, None
+
+
+async def delete_stored_object(school_id: uuid.UUID, stored_value: str | None) -> None:
+    if not stored_value:
+        return
+    key, legacy_path = _normalize_delete_target(stored_value)
+    if key:
+        storage = get_tenant_storage()
+        try:
+            await storage.delete(school_id, key)
+        except Exception:
+            pass
+    elif legacy_path and legacy_path.is_file():
+        legacy_path.unlink(missing_ok=True)

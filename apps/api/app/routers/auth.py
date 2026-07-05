@@ -694,7 +694,7 @@ async def school_preview(slug: str, conn: asyncpg.Connection = Depends(get_db)):
             media_type="application/json",
         )
     row = await conn.fetchrow(
-        "SELECT name, logo_url, slug, school_type FROM schools WHERE slug = $1 LIMIT 1",
+        "SELECT id, name, logo_url, slug, school_type FROM schools WHERE slug = $1 LIMIT 1",
         normalized,
     )
     if not row:
@@ -703,4 +703,7 @@ async def school_preview(slug: str, conn: asyncpg.Connection = Depends(get_db)):
             status_code=404,
             media_type="application/json",
         )
-    return {"data": dict(row)}
+    from app.lib.storage_urls import enrich_school_media
+
+    payload = await enrich_school_media(dict(row), row["id"])
+    return {"data": payload}

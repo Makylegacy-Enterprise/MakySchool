@@ -196,7 +196,11 @@ async def fetch_receipt_data(
 async def generate_fee_receipt_pdf(
     conn: asyncpg.Connection, payment_id: uuid.UUID, school_id: uuid.UUID
 ) -> tuple[bytes, str]:
+    from app.lib.storage_urls import resolve_storage_url
+
     data = await fetch_receipt_data(conn, payment_id, school_id)
+    data["logo_url"] = await resolve_storage_url(data.get("logo_url"), school_id=school_id)
+    data["stamp_url"] = await resolve_storage_url(data.get("stamp_url"), school_id=school_id)
     from weasyprint import HTML
 
     pdf = HTML(string=build_receipt_html(data)).write_pdf()
@@ -329,7 +333,11 @@ def build_invoice_html(data: dict) -> str:
 async def generate_invoice_pdf(
     conn: asyncpg.Connection, invoice_id: uuid.UUID, school_id: uuid.UUID
 ) -> tuple[bytes, str]:
+    from app.lib.storage_urls import resolve_storage_url
+
     data = await fetch_invoice_data(conn, invoice_id, school_id)
+    data["logo_url"] = await resolve_storage_url(data.get("logo_url"), school_id=school_id)
+    data["stamp_url"] = await resolve_storage_url(data.get("stamp_url"), school_id=school_id)
     from weasyprint import HTML
 
     pdf = HTML(string=build_invoice_html(data)).write_pdf()

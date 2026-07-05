@@ -16,7 +16,8 @@ from app.lib.jwt_utils import (
     cookie_options,
     sign_tenant_token,
 )
-from app.lib.uploads import save_school_image
+from app.lib.storage_urls import enrich_school_media, resolve_storage_url
+from app.lib.uploads import delete_stored_object, save_school_image
 from app.lib.user_sql import USER_ADMIN_ROLE_SQL, USER_DISPLAY_NAME_SQL, normalize_user_role
 from app.middleware.tenant import get_tenant_and_user
 from app.services.subscription import audit_school_subscription
@@ -83,13 +84,17 @@ async def get_setup_status(
     grading_scale = int(grading_row["count"] if grading_row else 0) > 0
     completed = bool(school and school.get("setup_completed_at"))
 
+    school_payload = _row(school)
+    if isinstance(school_payload, dict):
+        school_payload = await enrich_school_media(school_payload, school_id)
+
     return {
         "data": {
             "profile": profile,
             "academic_year": academic_year,
             "grading_scale": grading_scale,
             "completed": completed,
-            "school": _row(school),
+            "school": school_payload,
         }
     }
 
@@ -106,8 +111,21 @@ async def _save_profile(
     logo: UploadFile | None,
     stamp: UploadFile | None,
 ):
-    logo_url = await save_school_image(school_id, logo) if logo and logo.filename else None
-    stamp_url = await save_school_image(school_id, stamp) if stamp and stamp.filename else None
+    current = await conn.fetchrow(
+        "SELECT logo_url, stamp_url FROM schools WHERE id = $1",
+        school_id,
+    )
+
+    logo_key = None
+    stamp_key = None
+    if logo and logo.filename:
+        logo_key = await save_school_image(school_id, logo, category="logo")
+        if current and current["logo_url"]:
+            await delete_stored_object(school_id, current["logo_url"])
+    if stamp and stamp.filename:
+        stamp_key = await save_school_image(school_id, stamp, category="stamp")
+        if current and current["stamp_url"]:
+            await delete_stored_object(school_id, current["stamp_url"])
 
     row = await conn.fetchrow(
         """
@@ -123,15 +141,18 @@ async def _save_profile(
         RETURNING *
         """,
         name,
-        logo_url,
-        stamp_url,
+        logo_key,
+        stamp_key,
         email,
         phone,
         address,
         school_type,
         school_id,
     )
-    return {"data": _row(row)}
+    payload = _row(row)
+    if isinstance(payload, dict):
+        payload = await enrich_school_media(payload, school_id)
+    return {"data": payload}
 
 
 @router.post("/profile")

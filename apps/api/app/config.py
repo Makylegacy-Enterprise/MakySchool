@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = str(_API_ROOT / "uploads")
     MAX_UPLOAD_SIZE_MB: int = 2
 
+    # Object storage — local (dev) or Wasabi S3-compatible (production)
+    STORAGE_BACKEND: str = "local"  # local | wasabi
+    STORAGE_PRESIGNED_TTL_SECONDS: int = 3600
+    WASABI_ACCESS_KEY: str = ""
+    WASABI_SECRET_KEY: str = ""
+    WASABI_BUCKET: str = "makyschool"
+    WASABI_REGION: str = "eu-west-3"
+    WASABI_ENDPOINT: str = ""
+    WASABI_ENDPOINT_URL: str = ""
+
     SUPERADMIN_EMAIL: str = "admin@makyschool.com"
     SUPERADMIN_PASSWORD: str = "ChangeMe123!"
     SUPERADMIN_NAME: str = "Platform Admin"
@@ -105,6 +115,42 @@ class Settings(BaseSettings):
     @property
     def central_auth_enabled(self) -> bool:
         return bool(self.auth_api_base)
+
+    @property
+    def wasabi_endpoint_url(self) -> str:
+        explicit = (self.WASABI_ENDPOINT_URL or self.WASABI_ENDPOINT or "").strip()
+        if explicit:
+            return explicit.rstrip("/")
+        return ""
+
+    @property
+    def use_wasabi_storage(self) -> bool:
+        return self.STORAGE_BACKEND.strip().lower() == "wasabi"
+
+    @property
+    def use_local_storage(self) -> bool:
+        return not self.use_wasabi_storage
+
+    def validate_storage_config(self) -> None:
+        if not self.use_wasabi_storage:
+            return
+        missing = [
+            name
+            for name, value in (
+                ("WASABI_ACCESS_KEY", self.WASABI_ACCESS_KEY),
+                ("WASABI_SECRET_KEY", self.WASABI_SECRET_KEY),
+                ("WASABI_BUCKET", self.WASABI_BUCKET),
+                ("WASABI_REGION", self.WASABI_REGION),
+            )
+            if not str(value).strip()
+        ]
+        if not self.wasabi_endpoint_url:
+            missing.append("WASABI_ENDPOINT_URL")
+        if missing:
+            raise ValueError(
+                "Wasabi storage is enabled but required configuration is missing: "
+                + ", ".join(missing)
+            )
 
 
 settings = Settings()

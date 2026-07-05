@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -64,9 +65,22 @@ def mount_v1_and_legacy(app: FastAPI, router, legacy_prefix: str) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.services.storage.errors import StorageConfigError, StorageError
+    from app.services.storage.wasabi import validate_wasabi_connection
+
+    settings.validate_storage_config()
+    if settings.use_wasabi_storage:
+        try:
+            await asyncio.to_thread(validate_wasabi_connection)
+        except StorageError as exc:
+            raise StorageConfigError(str(exc)) from exc
+
     await run_migrations_on_startup()
     await get_pool()
-    logger.info("MakySchool API started")
+    logger.info(
+        "MakySchool API started storage_backend=%s",
+        "wasabi" if settings.use_wasabi_storage else "local",
+    )
     yield
     await close_pool()
 
@@ -144,7 +158,8 @@ def create_app() -> FastAPI:
 
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
+    if settings.use_local_storage:
+        app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
     mount_v1_and_legacy(app, health.router, "/api")
     mount_v1_and_legacy(app, auth.router, "/api/auth")
