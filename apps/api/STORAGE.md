@@ -40,6 +40,8 @@ schools/
 
 Use the school **UUID**, never the slug or name.
 
+When a superadmin creates a school, the API provisions empty `.keep` marker objects under each category folder (and the school root). If provisioning fails, school creation is rolled back.
+
 ## Configuration
 
 | Variable | Required | Description |

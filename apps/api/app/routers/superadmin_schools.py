@@ -14,6 +14,8 @@ from app.lib.slug import slugify_school_name
 from app.lib.user_sql import USER_ADMIN_ROLE_SQL, USER_DISPLAY_NAME_SQL, USER_LEARNER_ROLE_SQL, USER_TEACHER_ROLE_SQL
 from app.middleware.auth import get_current_superadmin
 from app.services.central_auth import CentralAuthError, central_auth_enabled, sync_user_password
+from app.services.storage import initialize_school_storage
+from app.services.storage.errors import StorageError
 
 router = APIRouter(dependencies=[Depends(get_current_superadmin)])
 
@@ -215,6 +217,18 @@ async def create_school(
             body.adminName.strip(),
             auth_user_id,
         )
+
+    try:
+        await initialize_school_storage(school_id)
+    except StorageError as exc:
+        await conn.execute("DELETE FROM schools WHERE id = $1", school_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "error": "Failed to provision school storage",
+                "code": exc.code or "STORAGE_PROVISION_FAILED",
+            },
+        ) from exc
 
     return {
         "data": {

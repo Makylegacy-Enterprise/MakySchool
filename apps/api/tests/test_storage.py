@@ -120,6 +120,19 @@ def test_validate_storage_config_requires_wasabi_fields(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_initialize_tenant_prefix_creates_category_markers(tenant_storage, local_backend, school_id):
+    from app.services.storage.keys import SCHOOL_STORAGE_CATEGORIES
+
+    keys = await tenant_storage.initialize_tenant_prefix(school_id)
+    assert len(keys) == len(SCHOOL_STORAGE_CATEGORIES) + 1
+    assert f"schools/{school_id}/.keep" in keys
+    for category in SCHOOL_STORAGE_CATEGORIES:
+        marker = f"schools/{school_id}/{category}/.keep"
+        assert marker in keys
+        assert local_backend.exists(marker)
+
+
+@pytest.mark.asyncio
 async def test_wasabi_upload_uses_boto3(school_id):
     pytest.importorskip("boto3")
     from app.services.storage.wasabi import WasabiStorageBackend

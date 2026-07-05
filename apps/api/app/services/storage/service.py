@@ -13,7 +13,11 @@ from fastapi import UploadFile
 from app.config import settings
 from app.services.storage.base import StorageBackend
 from app.services.storage.errors import StorageValidationError
-from app.services.storage.keys import assert_tenant_key, build_object_key
+from app.services.storage.keys import (
+    SCHOOL_STORAGE_CATEGORIES,
+    assert_tenant_key,
+    build_object_key,
+)
 
 logger = logging.getLogger("makyschool.storage")
 
@@ -209,3 +213,30 @@ class TenantStorageService:
         dest_key = build_object_key(school_id, dest_category, *dest_parts)
         await self._run(self._backend.move, normalized_source, dest_key)
         return dest_key
+
+    async def _put_marker(self, school_id: uuid.UUID, key: str) -> None:
+        normalized = assert_tenant_key(school_id, key)
+        await self._run(
+            self._backend.upload,
+            normalized,
+            BytesIO(b""),
+            content_type="application/octet-stream",
+            content_length=0,
+        )
+
+    async def initialize_tenant_prefix(self, school_id: uuid.UUID) -> list[str]:
+        """Create tenant folder markers under schools/{school_id}/ for each category."""
+        keys: list[str] = []
+        root_key = f"schools/{school_id}/.keep"
+        await self._put_marker(school_id, root_key)
+        keys.append(root_key)
+        for category in SCHOOL_STORAGE_CATEGORIES:
+            marker_key = build_object_key(school_id, category, ".keep")
+            await self._put_marker(school_id, marker_key)
+            keys.append(marker_key)
+        logger.info(
+            "Provisioned school storage school_id=%s categories=%d",
+            school_id,
+            len(SCHOOL_STORAGE_CATEGORIES),
+        )
+        return keys

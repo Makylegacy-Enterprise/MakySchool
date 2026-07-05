@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from functools import lru_cache
 
 from app.config import settings
@@ -17,6 +18,11 @@ def get_storage_backend():
 
 def get_tenant_storage() -> TenantStorageService:
     return TenantStorageService(get_storage_backend())
+
+
+async def initialize_school_storage(school_id: uuid.UUID) -> list[str]:
+    """Provision schools/{school_id}/ prefix and category folders in object storage."""
+    return await get_tenant_storage().initialize_tenant_prefix(school_id)
 
 
 def storage_configured() -> bool:

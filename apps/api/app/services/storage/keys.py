@@ -9,6 +9,21 @@ from app.services.storage.errors import StoragePermissionError, StorageValidatio
 _KEY_SEGMENT = re.compile(r"^[a-zA-Z0-9._-]+$")
 _FORBIDDEN_KEY_PARTS = frozenset({".", ".."})
 
+# Prefix folders provisioned when a superadmin creates a school.
+SCHOOL_STORAGE_CATEGORIES = (
+    "logo",
+    "stamp",
+    "students",
+    "teachers",
+    "staff",
+    "report_cards",
+    "exams",
+    "assignments",
+    "documents",
+    "invoices",
+    "library",
+)
+
 
 def build_object_key(school_id: uuid.UUID, category: str, *parts: str) -> str:
     """Build a tenant-scoped object key under schools/{school_id}/."""
