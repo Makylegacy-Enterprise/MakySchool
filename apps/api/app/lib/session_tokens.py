@@ -9,6 +9,8 @@ from app.config import settings
 from app.lib.jwt_utils import (
     ACCESS_TOKEN_EXPIRES,
     ACCESS_TOKEN_EXPIRES_MS,
+    REFRESH_TOKEN_EXPIRES,
+    REFRESH_TOKEN_EXPIRES_MS,
     cookie_options,
     sign_superadmin_token,
     sign_tenant_token,
@@ -83,21 +85,80 @@ def _verify_token(token: str | None, verify: VerifyFn) -> dict[str, Any] | None:
         return None
 
 
+def _resolve_refresh_payload(
+    request,
+    refresh_cookie: str,
+    access_cookie: str,
+    verify: VerifyFn,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Resolve session payload from refresh cookie, falling back to access cookie."""
+    refresh_token = request.cookies.get(refresh_cookie)
+    refresh_payload = _verify_token(refresh_token, verify)
+    if refresh_payload:
+        return refresh_payload, True
+
+    access_token = request.cookies.get(access_cookie)
+    access_payload = _verify_token(access_token, verify)
+    if access_payload:
+        return access_payload, False
+
+    return None, False
+
+
+def _issue_refresh_cookie(
+    response,
+    cookie_name: str,
+    payload: dict[str, Any],
+    sign: SignFn,
+) -> None:
+    response.set_cookie(
+        cookie_name,
+        sign(payload, REFRESH_TOKEN_EXPIRES),
+        **cookie_options(REFRESH_TOKEN_EXPIRES_MS),
+    )
+
+
 def refresh_tenant_session(request, response) -> dict[str, Any] | None:
-    refresh_token = request.cookies.get(settings.TENANT_REFRESH_COOKIE)
-    payload = _verify_token(refresh_token, verify_tenant_token)
+    payload, had_refresh = _resolve_refresh_payload(
+        request,
+        settings.TENANT_REFRESH_COOKIE,
+        settings.TENANT_ACCESS_COOKIE,
+        verify_tenant_token,
+    )
     if not payload:
         return None
-    expires_at = issue_tenant_access_cookie(response, _payload_without_exp(payload))
+
+    clean = _payload_without_exp(payload)
+    expires_at = issue_tenant_access_cookie(response, clean)
+    if not had_refresh:
+        _issue_refresh_cookie(
+            response,
+            settings.TENANT_REFRESH_COOKIE,
+            clean,
+            sign_tenant_token,
+        )
     return {"valid": True, "expiresAt": expires_at}
 
 
 def refresh_superadmin_session(request, response) -> dict[str, Any] | None:
-    refresh_token = request.cookies.get(settings.SUPERADMIN_REFRESH_COOKIE)
-    payload = _verify_token(refresh_token, verify_superadmin_token)
+    payload, had_refresh = _resolve_refresh_payload(
+        request,
+        settings.SUPERADMIN_REFRESH_COOKIE,
+        settings.SUPERADMIN_ACCESS_COOKIE,
+        verify_superadmin_token,
+    )
     if not payload:
         return None
-    expires_at = issue_superadmin_access_cookie(response, _payload_without_exp(payload))
+
+    clean = _payload_without_exp(payload)
+    expires_at = issue_superadmin_access_cookie(response, clean)
+    if not had_refresh:
+        _issue_refresh_cookie(
+            response,
+            settings.SUPERADMIN_REFRESH_COOKIE,
+            clean,
+            sign_superadmin_token,
+        )
     return {"valid": True, "expiresAt": expires_at}
 
 
