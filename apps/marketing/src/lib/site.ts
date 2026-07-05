@@ -270,7 +270,7 @@ export const faqItems = [
   },
 ] as const;
 
-export type SolutionSlug = "primary-schools" | "secondary-schools" | "fees-bursar" | "islamic-schools";
+export type SolutionSlug = "primary-schools" | "secondary-schools" | "fees-bursar" | "islamic-schools" | "cbc-uganda";
 
 export const solutions: Array<{
   slug: SolutionSlug;
@@ -313,13 +313,13 @@ export const solutions: Array<{
   {
     slug: "fees-bursar",
     title: "Fees & bursar",
-    summary: "Complete fees management with UGX currency support.",
+    summary: "Complete fees management with SchoolPay integration and UGX currency support.",
     description:
-      "Fee structures, term payments, receipts in UGX, outstanding tracking, and dedicated bursar portal for Uganda's schools.",
+      "Fee structures, term payments, MTN MoMo and Airtel Money integration via SchoolPay, outstanding tracking, and dedicated bursar portal for Uganda's schools.",
     bullets: [
+      "SchoolPay integration for MoMo & Airtel Money",
       "Fee structures per term in UGX",
-      "Student fee accounts",
-      "Payment recording & voiding",
+      "Student fee accounts & voiding",
       "PDF receipts and statements",
       "Outstanding balance reports",
     ],
@@ -339,6 +339,21 @@ export const solutions: Array<{
       "Full school management features",
     ],
     imageKey: "theology",
+  },
+  {
+    slug: "cbc-uganda",
+    title: "CBC Reporting",
+    summary: "Fully compliant CBC report cards and continuous assessment tracking.",
+    description:
+      "Transition your school smoothly to the Lower Secondary Competency-Based Curriculum (CBC) with automated report cards, activity tracking, and project assessments.",
+    bullets: [
+      "CBC-compliant automated report cards",
+      "Continuous assessment & activity tracking",
+      "Competency achievement ratings",
+      "Teacher, headteacher & parent portal access",
+      "UNEB integration readiness",
+    ],
+    imageKey: "primary",
   },
 ];
 
