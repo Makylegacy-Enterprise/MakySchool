@@ -4,14 +4,14 @@ import { motion } from "motion/react";
 import { marketingContainer } from "@/lib/layout";
 
 const trustedSchools = [
-  "Kampala Parents' School",
-  "Nabisunsa Girls' School",
-  "Kings College Budo",
-  "St. Mary's Kitende",
-  "Makerere College School",
-  "Mt. St. Mary's Namagunga",
-  "Gayaza High School",
-  "Seeta High School",
+  "Primary Schools",
+  "Secondary Schools",
+  "Theology Schools",
+  "International Schools",
+  "Day Schools",
+  "Boarding Schools",
+  "Mixed Schools",
+  "Single-Sex Schools",
 ];
 
 export function TrustedBySection() {
@@ -19,7 +19,7 @@ export function TrustedBySection() {
     <section className="overflow-hidden border-b border-theme bg-theme-surface-raised py-12">
       <div className={`${marketingContainer} flex flex-col items-center`}>
         <p className="text-sm font-semibold uppercase tracking-wider text-theme-muted">
-          Trusted by over 100+ forward-thinking schools in Uganda
+          Trusted by forward-thinking schools in Uganda
         </p>
 
         <div className="relative mt-8 flex w-full overflow-hidden">
