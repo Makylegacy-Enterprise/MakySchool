@@ -2,14 +2,11 @@ from fastapi import HTTPException, Request, status
 from jose import JWTError
 
 from app.config import settings
-from app.lib.jwt_utils import verify_superadmin_token, verify_tenant_token
-
-
-from fastapi import HTTPException, Request, status
-from jose import JWTError
-
-from app.config import settings
-from app.lib.jwt_utils import verify_superadmin_token, verify_tenant_token
+from app.lib.jwt_utils import (
+    cookie_delete_options,
+    verify_superadmin_token,
+    verify_tenant_token,
+)
 
 
 def _extract_bearer(auth_header: str | None) -> str | None:
@@ -89,12 +86,7 @@ async def get_current_superadmin(request: Request) -> dict:
 
 
 def clear_auth_cookies(response) -> None:
-    # Must match attributes used in cookie_options() or browsers keep Secure cookies.
-    delete_kwargs = {
-        "path": "/",
-        "secure": settings.is_production,
-        "samesite": "lax",
-    }
+    delete_kwargs = cookie_delete_options()
     for name in (
         settings.SUPERADMIN_ACCESS_COOKIE,
         settings.SUPERADMIN_REFRESH_COOKIE,

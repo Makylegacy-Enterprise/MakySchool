@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     TENANT_REFRESH_COOKIE: str = "tenant_refresh_token"
     SUPERADMIN_ACCESS_COOKIE: str = "superadmin_access_token"
     SUPERADMIN_REFRESH_COOKIE: str = "superadmin_refresh_token"
+    COOKIE_DOMAIN: str = ""  # e.g. ".makylegacy.com" — empty means no domain attribute (localhost dev)
 
     PORT: int = 4000
     ENVIRONMENT: str = "development"

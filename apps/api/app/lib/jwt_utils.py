@@ -72,13 +72,30 @@ REFRESH_TOKEN_EXPIRES_MS = expires_to_ms(REFRESH_TOKEN_EXPIRES)
 
 
 def cookie_options(max_age_ms: int) -> dict[str, Any]:
-    return {
+    opts: dict[str, Any] = {
         "httponly": True,
         "samesite": "lax",
-        "secure": settings.is_production,
-        "path": "/",
         "max_age": max_age_ms // 1000,
+        "path": "/",
     }
+    if settings.COOKIE_DOMAIN:
+        opts["domain"] = settings.COOKIE_DOMAIN
+    if settings.COOKIE_DOMAIN or settings.is_production:
+        opts["secure"] = True
+    return opts
+
+
+def cookie_delete_options() -> dict[str, Any]:
+    """Keyword args for delete_cookie — must match cookie_options() attributes."""
+    opts: dict[str, Any] = {
+        "path": "/",
+        "samesite": "lax",
+    }
+    if settings.COOKIE_DOMAIN:
+        opts["domain"] = settings.COOKIE_DOMAIN
+    if settings.COOKIE_DOMAIN or settings.is_production:
+        opts["secure"] = True
+    return opts
 
 
 def is_maky_school_role(role: str) -> bool:

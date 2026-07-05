@@ -16,6 +16,7 @@ from app.lib.jwt_utils import (
     ACCESS_TOKEN_EXPIRES,
     REFRESH_TOKEN_EXPIRES,
     REFRESH_TOKEN_EXPIRES_MS,
+    cookie_delete_options,
     cookie_options,
     is_maky_school_role,
     is_school_setup_completed,
@@ -312,7 +313,7 @@ async def login(
             sign_tenant_token(payload, "1h"),
             **cookie_options(60 * 60 * 1000),
         )
-        response.delete_cookie(settings.TENANT_REFRESH_COOKIE, path="/")
+        response.delete_cookie(settings.TENANT_REFRESH_COOKIE, **cookie_delete_options())
     else:
         response.set_cookie(
             settings.TENANT_ACCESS_COOKIE,
