@@ -6,7 +6,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationJsonLd, softwareApplicationJsonLd, webSiteJsonLd, localBusinessJsonLd, productJsonLd } from "@/lib/json-ld";
 import { createPageMetadata } from "@/lib/metadata";
 import { defaultRobots, seoKeywords, siteVerificationMetadata } from "@/lib/seo";
-import { siteConfig } from "@/lib/site";
+import { siteConfig, siteUrl } from "@/lib/site";
 import { MarketingProviders } from "@/providers/MarketingProviders";
 import { MarketingScrollChrome } from "@/components/motion/MarketingScrollChrome";
 import "@makyschool/ui/styles/globals.css";
@@ -29,7 +29,7 @@ const rootMetadata = createPageMetadata({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://school.makylegacy.com"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: `${siteConfig.name} — ${siteConfig.tagline}`,
     template: `%s | ${siteConfig.name}`,

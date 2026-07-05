@@ -48,32 +48,35 @@ export function HeroSection() {
           </motion.p>
           <motion.h1
             variants={fadeUp}
-            className="mt-3 text-3xl font-semibold tracking-tight text-theme-primary sm:text-4xl sm:leading-tight lg:text-[3.25rem] lg:leading-[1.1]"
+            className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl lg:text-[4rem] lg:leading-[1.1] text-transparent bg-clip-text bg-gradient-to-r from-theme-primary via-theme-primary to-theme-muted"
           >
-            Run your school with clarity
+            Run your school with absolute clarity
           </motion.h1>
           <motion.p
             variants={fadeUp}
-            className="mt-4 text-base leading-relaxed text-theme-muted sm:text-lg"
+            className="mt-6 max-w-2xl text-lg leading-relaxed text-theme-muted sm:text-xl"
           >
             {siteConfig.description}
           </motion.p>
 
-          <motion.div variants={scaleIn} className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap sm:items-center">
+          <motion.div variants={scaleIn} className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
             <Link
               href={bookDemoUrl}
-              className="marketing-cta-button inline-flex items-center justify-center gap-2 rounded-full bg-theme-accent px-6 py-3.5 text-sm font-semibold text-on-accent shadow-theme-accent transition hover:bg-theme-accent-hover sm:w-auto sm:px-7"
+              className="marketing-cta-button group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-theme-primary px-8 py-4 text-sm font-semibold text-theme-surface shadow-theme-soft transition-all hover:scale-[1.02] hover:bg-theme-primary/90 sm:w-auto"
             >
+              <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-100%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(100%)]">
+                <div className="relative h-full w-8 bg-white/20" />
+              </div>
               <CalendarDays className="h-4 w-4" />
               Book a demo
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/contact"
-              className="marketing-cta-button inline-flex items-center justify-center gap-2 rounded-full border border-theme bg-theme-surface px-6 py-3.5 text-sm font-semibold text-theme-primary transition hover:bg-theme-surface-raised sm:w-auto sm:px-7"
+              className="marketing-cta-button inline-flex items-center justify-center gap-2 rounded-full border border-theme-border-strong bg-white/50 px-8 py-4 text-sm font-semibold text-theme-primary backdrop-blur-md transition-all hover:bg-theme-surface hover:shadow-theme-soft sm:w-auto dark:bg-black/50 dark:hover:bg-theme-surface"
             >
               <Mail className="h-4 w-4" />
-              Contact us
+              Contact sales
             </Link>
           </motion.div>
 
@@ -101,12 +104,15 @@ export function HeroSection() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, x: reduceMotion ? 0 : 28 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.65, delay: reduceMotion ? 0 : 0.12, ease: easeOutExpo }}
-          className="order-1 rounded-2xl border border-theme bg-theme-surface p-2 shadow-theme-soft sm:p-3 lg:order-2"
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 40, rotateX: reduceMotion ? 0 : 10 }}
+          animate={{ opacity: 1, y: 0, rotateX: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.8, delay: reduceMotion ? 0 : 0.2, ease: easeOutExpo }}
+          style={{ perspective: "1000px" }}
+          className="order-1 rounded-2xl border border-white/20 bg-white/40 p-2 shadow-2xl backdrop-blur-xl sm:p-4 lg:order-2 dark:border-white/10 dark:bg-black/40"
         >
-          <MarketingImage imageKey="hero" priority variant="hero" />
+          <div className="overflow-hidden rounded-xl border border-theme-border/50 bg-theme-surface ring-1 ring-white/50 dark:ring-white/10">
+            <MarketingImage imageKey="hero" priority variant="hero" />
+          </div>
         </motion.div>
       </div>
     </section>

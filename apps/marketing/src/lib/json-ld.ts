@@ -34,11 +34,15 @@ export function softwareApplicationJsonLd() {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: siteConfig.name,
-    applicationCategory: "BusinessApplication",
+    applicationCategory: "EducationalApplication",
     operatingSystem: "Web",
     image: `${siteUrl}/opengraph-image`,
-    description: "Uganda's best school management system for primary schools, secondary schools, and theology-focused schools. Manage classes, academics, theology curriculum, teachers, learners, fees in UGX, and complete school operations from one platform.",
+    description: "Uganda's best school management system for primary schools, secondary schools, and theology-focused schools. Manage classes, academics, theology curriculum, teachers, learners, fees via SchoolPay (MoMo/Airtel Money), and complete school operations from one platform.",
     url: siteUrl,
+    audience: {
+      "@type": "Audience",
+      audienceType: "EducationalOrganizations in Uganda"
+    },
     offers: {
       "@type": "Offer",
       price: "0",
