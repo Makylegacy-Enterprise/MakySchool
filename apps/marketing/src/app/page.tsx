@@ -7,6 +7,7 @@ import { PricingPreviewSection } from "@/components/sections/PricingPreviewSecti
 import { SolutionsPreviewSection } from "@/components/sections/SolutionsPreviewSection";
 import { StatsSection } from "@/components/sections/StatsSection";
 import { TestimonialsSection } from "@/components/sections/TestimonialsSection";
+import { TrustedBySection } from "@/components/sections/TrustedBySection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { faqPageJsonLd } from "@/lib/json-ld";
 
@@ -15,6 +16,7 @@ export default function HomePage() {
     <>
       <JsonLd data={faqPageJsonLd()} />
       <HeroSection />
+      <TrustedBySection />
       <StatsSection />
       <FeaturesSection />
       <HowItWorksSection />
