@@ -260,7 +260,6 @@ async def get_daily_attendance(
 
 # ── POST /schools/attendance/bulk ─────────────────────────────────────────────
 # Upserts the complete list of logged student records for a given period+date.
-
 @router.post("/bulk")
 async def save_bulk_attendance(
     body: BulkAttendancePayload,
@@ -283,25 +282,8 @@ async def save_bulk_attendance(
 
     class_id = await _assert_teacher_owns_period(conn, actor_id, body.timetable_period_id, school_id)
 
-    already_submitted = await conn.fetchval(
-        """
-        SELECT EXISTS(
-            SELECT 1 FROM attendance
-            WHERE timetable_period_id = $1 AND date = $2 AND school_id = $3
-        )
-        """,
-        body.timetable_period_id,
-        parsed_date,
-        school_id,
-    )
-    if already_submitted:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "error": "Attendance for this period has already been submitted and is locked.",
-                "code": "ALREADY_SUBMITTED",
-            },
-        )
+    # Note: Removed the rigid 409 already_submitted block to let your frontend 
+    # "Edit Attendance" mode seamlessly overwrite or modify rows.
 
     async with conn.transaction():
         for entry in body.entries:
@@ -311,6 +293,14 @@ async def save_bulk_attendance(
                   (school_id, class_id, timetable_period_id, student_id, term_id,
                    date, status, notes, recorded_by)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT ON CONSTRAINT attendance_unique_student_date
+                DO UPDATE SET
+                    status            = EXCLUDED.status,
+                    notes             = EXCLUDED.notes,
+                    timetable_period_id = EXCLUDED.timetable_period_id,
+                    term_id           = EXCLUDED.term_id,
+                    recorded_by       = EXCLUDED.recorded_by,
+                    updated_at        = NOW();
                 """,
                 school_id,
                 class_id,
