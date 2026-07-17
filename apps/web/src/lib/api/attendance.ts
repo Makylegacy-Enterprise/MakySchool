@@ -28,15 +28,14 @@ export const attendanceApi = {
   /**
    * Push full room changes up to the database log
    */
-  saveBulk(payload: {
+saveBulk(payload: {
     timetableSlotId: string;
     termId: string;
     date: string;
     entries: Array<{ studentId: string; status: string; notes?: string }>;
   }) {
-    // Map structural key variations into Pydantic target parameters cleanly
     const snakeCasedPayload = {
-      timetable_slot_id: payload.timetableSlotId,
+      timetable_period_id: payload.timetableSlotId,
       term_id: payload.termId,
       date: payload.date,
       entries: payload.entries.map((e) => ({

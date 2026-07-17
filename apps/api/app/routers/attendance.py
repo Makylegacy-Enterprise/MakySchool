@@ -283,6 +283,26 @@ async def save_bulk_attendance(
 
     class_id = await _assert_teacher_owns_period(conn, actor_id, body.timetable_period_id, school_id)
 
+    already_submitted = await conn.fetchval(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM attendance
+            WHERE timetable_period_id = $1 AND date = $2 AND school_id = $3
+        )
+        """,
+        body.timetable_period_id,
+        parsed_date,
+        school_id,
+    )
+    if already_submitted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "Attendance for this period has already been submitted and is locked.",
+                "code": "ALREADY_SUBMITTED",
+            },
+        )
+
     async with conn.transaction():
         for entry in body.entries:
             await conn.execute(
@@ -291,12 +311,6 @@ async def save_bulk_attendance(
                   (school_id, class_id, timetable_period_id, student_id, term_id,
                    date, status, notes, recorded_by)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT (timetable_period_id, student_id, date)
-                DO UPDATE SET
-                  status      = EXCLUDED.status,
-                  notes       = EXCLUDED.notes,
-                  recorded_by = EXCLUDED.recorded_by,
-                  updated_at  = now()
                 """,
                 school_id,
                 class_id,
@@ -316,8 +330,6 @@ async def save_bulk_attendance(
             "timetableSlotId": str(body.timetable_period_id),
         }
     }
-
-
 # ── GET /schools/attendance/monthly ──────────────────────────────────────────
 # Compiles the comprehensive matrix grid for structural history rendering.
 

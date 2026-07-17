@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { CalendarDays, CheckCircle2, Clock, XCircle, Users } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, XCircle, Users, AlertCircle } from 'lucide-react';
 import { useDailyAttendance, useSaveAttendance, useTeacherTimetable } from '@/hooks/useAttendance';
 import { todayEAT } from '@/lib/api/attendance';
 import type { AttendanceStatus, BulkAttendanceEntry } from '@makyschool/shared';
@@ -48,7 +48,6 @@ export default function AttendancePage() {
   const searchParams = useSearchParams();
   const { data: term } = useCurrentTerm();
 
-  // Read initialization parameters directly off the browser navigation query bar
   const urlDate = searchParams.get('date');
   const urlSlotId = searchParams.get('slotId');
 
@@ -57,39 +56,36 @@ export default function AttendancePage() {
   const [overrides, setOverrides] = useState<{ [id: string]: AttendanceStatus }>({});
   const [notes, setNotes] = useState<{ [id: string]: string }>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   const termId = term?.id ?? '';
 
-  // 1. Fetch available timetable period blocks assigned to this teacher for the selected date
   const { data: slots = [], isPending: isPendingSlots } = useTeacherTimetable(selectedDate);
-
-  // If a deep-linked slotId is in the URL, prioritize it. Otherwise, fall back to the first available slot.
   const activeSlotId = selectedSlotId || slots[0]?.timetableSlotId || '';
   const queryEnabled = !!activeSlotId && !!termId;
 
-  // Sync state if navigation URL parameters change externally
   useEffect(() => {
     if (urlDate) setSelectedDate(urlDate);
     if (urlSlotId) setSelectedSlotId(urlSlotId);
   }, [urlDate, urlSlotId]);
 
-  // 2. Fetch the roster and logs driven by the selected timetable period ID
   const { data, isPending: isPendingAttendance, isError } = useDailyAttendance(
     activeSlotId,
     termId,
     selectedDate,
     queryEnabled
   );
-  
+
   const saveMutation = useSaveAttendance();
 
-  // Reset local form states when switching periods or shifting dates
   useEffect(() => {
     setOverrides({});
     setNotes({});
     setIsEditing(false);
+    setJustSaved(false);
   }, [activeSlotId, selectedDate]);
 
+  const activeSlot = slots.find((s) => s.timetableSlotId === activeSlotId);
   const alreadySubmitted = data?.alreadySubmitted && !isEditing;
   const isInitialTake = data && !data.alreadySubmitted;
 
@@ -101,6 +97,16 @@ export default function AttendancePage() {
       notes:  notes[s.studentId] ?? s.notes ?? '',
     }));
   }, [data, overrides, notes, isInitialTake]);
+
+  const tally = useMemo(() => {
+    const counts: Record<AttendanceStatus, number> = { present: 0, late: 0, absent: 0 };
+    let unset = 0;
+    for (const r of rows) {
+      if (r.status) counts[r.status as AttendanceStatus]++;
+      else unset++;
+    }
+    return { ...counts, unset, total: rows.length };
+  }, [rows]);
 
   function setStatus(studentId: string, st: AttendanceStatus) {
     setOverrides((prev) => ({ ...prev, [studentId]: st }));
@@ -122,27 +128,30 @@ export default function AttendancePage() {
       status:    r.status ?? 'present',
       notes:     notes[r.studentId] || undefined,
     }));
-    
+
     await saveMutation.mutateAsync({ timetableSlotId: activeSlotId, termId, date: selectedDate, entries });
     setOverrides({});
     setNotes({});
     setIsEditing(false);
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 3000);
   }
 
   const hasChanges = Object.keys(overrides).length > 0;
   const canSave = isInitialTake ? true : hasChanges;
-  const isPending = isPendingSlots || isPendingAttendance;
+  const isPending = isPendingSlots || (queryEnabled && isPendingAttendance);
+
+
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-3">
-          <CalendarDays className="h-6 w-6 text-primary animate-pulse" />
+          <CalendarDays className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Attendance</h1>
         </div>
 
-        {/* Tab Navigation */}
         <div className="flex gap-2">
           <Link
             href="/teacher/attendance"
@@ -169,7 +178,7 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Controls Container */}
+      {/* Controls */}
       <div className="flex flex-wrap gap-6 bg-muted/30 p-4 rounded-xl border border-border/60">
         <div className="flex flex-col gap-1.5 min-w-[160px]">
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</label>
@@ -179,14 +188,16 @@ export default function AttendancePage() {
             value={selectedDate}
             onChange={(e) => {
               setSelectedDate(e.target.value);
-              setSelectedSlotId(''); 
+              setSelectedSlotId('');
             }}
             className="rounded-lg border border-border bg-background px-3.5 py-2 text-sm shadow-sm transition-all duration-200 hover:border-muted-foreground/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-foreground"
           />
         </div>
 
         <div className="flex flex-col gap-1.5 min-w-[280px] flex-1">
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Assigned Period / Lesson</label>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Assigned Period / Lesson
+          </label>
           <select
             className="rounded-lg border border-border bg-background px-3.5 py-2 text-sm shadow-sm transition-all duration-200 hover:border-muted-foreground/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-foreground disabled:opacity-50"
             value={activeSlotId}
@@ -198,13 +209,20 @@ export default function AttendancePage() {
             ) : (
               slots.map((s) => (
                 <option key={s.timetableSlotId} value={s.timetableSlotId}>
-                  {s.className} — {s.subjectName} {s.timeLabel} {s.alreadySubmitted ? '✓' : ''}
+                  {s.className} — {s.subjectName} · {s.timeLabel} {s.alreadySubmitted ? '✓' : ''}
                 </option>
               ))
             )}
           </select>
         </div>
       </div>
+
+      {justSaved && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10 px-5 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-300 shadow-sm">
+          <CheckCircle2 className="h-4 w-4" />
+          Attendance saved for {activeSlot?.className} — {activeSlot?.subjectName}.
+        </div>
+      )}
 
       {slots.length === 0 && !isPending ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-12 text-center max-w-md mx-auto mt-8 bg-muted/10 shadow-sm">
@@ -219,12 +237,11 @@ export default function AttendancePage() {
         </div>
       ) : (
         <>
-          {/* Already submitted banner */}
           {alreadySubmitted && (
             <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10 px-5 py-3.5 shadow-sm">
               <div className="flex items-center gap-2.5 text-sm text-emerald-800 dark:text-emerald-300 font-medium">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                Attendance already submitted for this period slot.
+                Attendance already submitted for {activeSlot?.className} — {activeSlot?.subjectName}.
               </div>
               <button
                 onClick={() => setIsEditing(true)}
@@ -235,11 +252,11 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* Table View State Grid */}
           {isPending ? (
             <AttendanceTableSkeleton />
           ) : isError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/10 p-6 text-center text-sm text-rose-700 dark:text-rose-400 font-medium shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/10 p-8 text-center text-sm text-rose-700 dark:text-rose-400 font-medium shadow-sm">
+              <AlertCircle className="h-6 w-6" />
               Failed to load students for this period. Please try again.
             </div>
           ) : rows.length === 0 ? (
@@ -247,26 +264,39 @@ export default function AttendancePage() {
               <Users className="h-10 w-10 text-muted-foreground/30" />
               <p className="text-sm font-semibold text-foreground">No students found in this class</p>
               <p className="text-xs text-muted-foreground">
-                Ensure active students are added to this class section.
+                Ensure active students are enrolled and assigned to this class.
               </p>
             </div>
           ) : (
             <>
-              {!alreadySubmitted && (
-                <div className="flex justify-end">
+              {/* Tally bar + actions */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  <TallyPill label="Present" count={tally.present} className={STATUS_CONFIG.present} />
+                  <TallyPill label="Late" count={tally.late} className={STATUS_CONFIG.late} />
+                  <TallyPill label="Absent" count={tally.absent} className={STATUS_CONFIG.absent} />
+                  {tally.unset > 0 && (
+                    <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">
+                      {tally.unset} unmarked
+                    </span>
+                  )}
+                  <span className="text-muted-foreground font-normal">of {tally.total} students</span>
+                </div>
+
+                {!alreadySubmitted && (
                   <button
                     onClick={markAllPresent}
                     className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors underline underline-offset-4"
                   >
                     Mark all present
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[65vh] overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/40 border-b border-border text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur border-b border-border text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       <tr>
                         <th className="px-5 py-3.5 w-16">#</th>
                         <th className="px-5 py-3.5">Student</th>
@@ -331,7 +361,12 @@ export default function AttendancePage() {
               </div>
 
               {!alreadySubmitted && (
-                <div className="flex justify-end pt-4">
+                <div className="flex items-center justify-between pt-4">
+                  <p className="text-xs text-muted-foreground">
+                    {tally.unset > 0
+                      ? `${tally.unset} student${tally.unset > 1 ? 's' : ''} still unmarked.`
+                      : 'All students marked.'}
+                  </p>
                   <button
                     onClick={handleSave}
                     disabled={saveMutation.isPending || !canSave}
@@ -349,6 +384,15 @@ export default function AttendancePage() {
         </>
       )}
     </div>
+  );
+}
+
+function TallyPill({ label, count, className }: { label: string; count: number; className: StatusConfig }) {
+  return (
+    <span className={['inline-flex items-center gap-1.5 rounded-full border px-3 py-1', className.bg, className.border, className.text].join(' ')}>
+      <className.icon className="h-3.5 w-3.5" />
+      {count} {label}
+    </span>
   );
 }
 

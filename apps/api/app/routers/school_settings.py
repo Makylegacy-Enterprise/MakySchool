@@ -35,6 +35,39 @@ def _require_manage_school(actor: dict[str, Any]) -> None:
             },
         )
 
+@router.get("/current-term")
+async def get_current_term(
+    ctx: TenantCtx,
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    school_id, actor = ctx
+    # No _require_manage_school here — any authenticated tenant role
+    # (teacher, admin, head_teacher, bursar) needs to know the current term.
+    row = await conn.fetchrow(
+        """
+        SELECT id, name, start_date, end_date, is_current
+        FROM terms
+        WHERE school_id = $1
+        ORDER BY
+          is_current DESC,
+          (start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE) DESC,
+          start_date DESC NULLS LAST
+        LIMIT 1
+        """,
+        school_id,
+    )
+    if not row:
+        return {"data": None}
+    return {
+        "data": {
+            "id": str(row["id"]),
+            "name": row["name"],
+            "startDate": row["start_date"].isoformat() if row["start_date"] else None,
+            "endDate": row["end_date"].isoformat() if row["end_date"] else None,
+            "isCurrent": row["is_current"],
+        }
+    }
+
 
 @router.get("")
 async def get_settings(
