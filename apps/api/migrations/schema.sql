@@ -627,7 +627,7 @@ CREATE TABLE public.users (
   avatar_uploaded_at timestamp with time zone,
   avatar_file_size integer,
   avatar_mime_type text,
-  role text NOT NULL DEFAULT 'LEARNER'::text CHECK (role = ANY (ARRAY['ADMIN'::text, 'TEACHER'::text, 'LEARNER'::text, 'STUDENT'::text])),
+  role text NOT NULL DEFAULT 'LEARNER'::text CHECK (role = ANY (ARRAY['admin'::text, 'head_teacher'::text, 'teacher'::text, 'bursar'::text, 'learner'::text, 'ADMIN'::text, 'TEACHER'::text, 'LEARNER'::text, 'STUDENT'::text])),
   display_name text,
   account_status text NOT NULL DEFAULT 'PENDING'::text CHECK (account_status = ANY (ARRAY['PENDING'::text, 'ACTIVE'::text, 'SUSPENDED'::text, 'INACTIVE'::text, 'DELETED'::text])),
   learner_age_group text CHECK (learner_age_group = ANY (ARRAY['7-9'::text, '10-12'::text, '13-15'::text, '16-18'::text, 'ADULT'::text])),
@@ -672,10 +672,25 @@ CREATE TABLE public.users (
   temporary_password character varying,
   name text,
   school_class_id uuid,
+  is_temp_password boolean DEFAULT true,
+  setup_completed boolean DEFAULT false,
+  subject_specialization text,
+  is_active boolean NOT NULL DEFAULT true,
+  deactivated_at timestamp with time zone,
+  deactivated_reason text,
+  created_by uuid,
+  password_reset_token text,
+  password_reset_expires timestamp with time zone,
+  profile_updated_at timestamp with time zone,
+  failed_login_attempts integer NOT NULL DEFAULT 0,
+  locked_until timestamp with time zone,
+  last_failed_login timestamp with time zone,
+  auth_user_id uuid,
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_last_password_reset_by_fkey FOREIGN KEY (last_password_reset_by) REFERENCES public.users(id),
   CONSTRAINT users_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
-  CONSTRAINT users_school_class_id_fkey FOREIGN KEY (school_class_id) REFERENCES public.school_classes(id)
+  CONSTRAINT users_school_class_id_fkey FOREIGN KEY (school_class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT users_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.notification_log (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -722,7 +737,7 @@ CREATE TABLE public.platform_settings (
   updated_at timestamp with time zone DEFAULT now(),
   updated_by uuid,
   CONSTRAINT platform_settings_pkey PRIMARY KEY (id),
-  CONSTRAINT platform_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id)
+  CONSTRAINT platform_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.super_admins(id)
 );
 CREATE TABLE public.profile_image_uploads (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -815,11 +830,15 @@ CREATE TABLE public.schools (
   email text,
   phone text,
   school_type text CHECK (school_type IS NULL OR (school_type = ANY (ARRAY['primary'::text, 'secondary'::text, 'both'::text]))),
-  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['setup'::text, 'active'::text, 'suspended'::text])),
+  status text DEFAULT 'setup'::text CHECK (status = ANY (ARRAY['setup'::text, 'active'::text, 'suspended'::text])),
   subscription_status text DEFAULT 'unpaid'::text CHECK (subscription_status = ANY (ARRAY['unpaid'::text, 'active'::text, 'expired'::text])),
   subscription_term text,
   subscription_year integer,
   schoolpay_code text,
+  setup_completed_at timestamp with time zone,
+  learner_id_prefix text,
+  learner_id_suffix_length integer NOT NULL DEFAULT 6 CHECK (learner_id_suffix_length >= 4 AND learner_id_suffix_length <= 10),
+  learner_id_mode text NOT NULL DEFAULT 'sequential'::text CHECK (learner_id_mode = ANY (ARRAY['sequential'::text, 'random'::text])),
   CONSTRAINT schools_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.submissions (
@@ -875,6 +894,10 @@ CREATE TABLE public.super_admins (
   password_hash text NOT NULL,
   name text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  failed_login_attempts integer NOT NULL DEFAULT 0,
+  locked_until timestamp with time zone,
+  last_failed_login timestamp with time zone,
+  auth_user_id uuid,
   CONSTRAINT super_admins_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.school_classes (
@@ -884,6 +907,8 @@ CREATE TABLE public.school_classes (
   stream text,
   capacity integer,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  sort_order integer,
   CONSTRAINT school_classes_pkey PRIMARY KEY (id),
   CONSTRAINT school_classes_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
@@ -892,6 +917,7 @@ CREATE TABLE public.school_subjects (
   school_id uuid NOT NULL,
   name text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT school_subjects_pkey PRIMARY KEY (id),
   CONSTRAINT school_subjects_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
@@ -900,6 +926,7 @@ CREATE TABLE public.school_class_subjects (
   school_id uuid NOT NULL,
   class_id uuid NOT NULL,
   subject_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT school_class_subjects_pkey PRIMARY KEY (id),
   CONSTRAINT school_class_subjects_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT school_class_subjects_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
@@ -943,7 +970,12 @@ CREATE TABLE public.subscription_payments (
   term text NOT NULL,
   year integer NOT NULL,
   schoolpay_ref text,
-  paid_at timestamp with time zone NOT NULL DEFAULT now(),
+  paid_at timestamp with time zone DEFAULT now(),
+  status text NOT NULL DEFAULT 'completed'::text,
+  payment_reference uuid,
+  provider text,
+  provider_transaction_id text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT subscription_payments_pkey PRIMARY KEY (id),
   CONSTRAINT subscription_payments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
@@ -955,4 +987,401 @@ CREATE TABLE public.webhook_logs (
   processed_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT webhook_logs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.subscription_audit_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  action text NOT NULL,
+  previous_status text,
+  new_status text,
+  previous_term text,
+  previous_year integer,
+  required_term text NOT NULL,
+  required_year integer NOT NULL,
+  triggered_by uuid,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT subscription_audit_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT subscription_audit_logs_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT subscription_audit_logs_triggered_by_fkey FOREIGN KEY (triggered_by) REFERENCES public.super_admins(id)
+);
+CREATE TABLE public.teacher_class_assignments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  teacher_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  subject_id uuid,
+  assigned_at timestamp with time zone DEFAULT now(),
+  assigned_by uuid,
+  CONSTRAINT teacher_class_assignments_pkey PRIMARY KEY (id),
+  CONSTRAINT teacher_class_assignments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT teacher_class_assignments_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.users(id),
+  CONSTRAINT teacher_class_assignments_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT teacher_class_assignments_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.school_subjects(id),
+  CONSTRAINT teacher_class_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.teacher_term_submissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  teacher_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  term_id uuid,
+  submitted_at timestamp with time zone,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'draft'::text, 'submitted'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT teacher_term_submissions_pkey PRIMARY KEY (id),
+  CONSTRAINT teacher_term_submissions_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT teacher_term_submissions_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.users(id),
+  CONSTRAINT teacher_term_submissions_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT teacher_term_submissions_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id)
+);
+CREATE TABLE public.students (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  learner_id text NOT NULL,
+  full_name text NOT NULL,
+  date_of_birth date,
+  gender text CHECK (gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])),
+  photo_url text,
+  current_class_id uuid,
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text, 'withdrawn'::text])),
+  withdrawal_reason text,
+  withdrawn_at timestamp with time zone,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT students_pkey PRIMARY KEY (id),
+  CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT students_current_class_id_fkey FOREIGN KEY (current_class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT students_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.student_guardians (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  full_name text NOT NULL,
+  phone text,
+  email text,
+  relationship text DEFAULT 'parent'::text CHECK (relationship = ANY (ARRAY['parent'::text, 'guardian'::text, 'sibling'::text, 'other'::text])),
+  is_primary boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT student_guardians_pkey PRIMARY KEY (id),
+  CONSTRAINT student_guardians_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT student_guardians_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+);
+CREATE TABLE public.student_class_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  enrolled_at timestamp with time zone DEFAULT now(),
+  left_at timestamp with time zone,
+  reason text,
+  moved_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT student_class_history_pkey PRIMARY KEY (id),
+  CONSTRAINT student_class_history_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT student_class_history_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT student_class_history_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT student_class_history_moved_by_fkey FOREIGN KEY (moved_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.learner_id_sequences (
+  school_id uuid NOT NULL,
+  prefix text NOT NULL,
+  year integer NOT NULL,
+  next_seq integer NOT NULL DEFAULT 1,
+  CONSTRAINT learner_id_sequences_pkey PRIMARY KEY (school_id, year),
+  CONSTRAINT learner_id_sequences_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.student_import_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  imported_by uuid,
+  filename text,
+  total_rows integer DEFAULT 0,
+  imported integer DEFAULT 0,
+  failed integer DEFAULT 0,
+  errors jsonb,
+  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'complete'::text, 'partial'::text, 'failed'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT student_import_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT student_import_logs_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT student_import_logs_imported_by_fkey FOREIGN KEY (imported_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.fee_structures (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  term_id uuid,
+  term_name text NOT NULL,
+  academic_year integer NOT NULL,
+  amount bigint NOT NULL,
+  currency text NOT NULL DEFAULT 'UGX'::text,
+  description text,
+  is_active boolean DEFAULT true,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT fee_structures_pkey PRIMARY KEY (id),
+  CONSTRAINT fee_structures_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT fee_structures_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT fee_structures_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
+  CONSTRAINT fee_structures_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.student_fee_accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  fee_structure_id uuid NOT NULL,
+  amount_owed bigint NOT NULL,
+  amount_paid bigint NOT NULL DEFAULT 0,
+  balance bigint DEFAULT (amount_owed - amount_paid),
+  status text NOT NULL DEFAULT 'unpaid'::text CHECK (status = ANY (ARRAY['unpaid'::text, 'partial'::text, 'paid'::text, 'waived'::text, 'overpaid'::text])),
+  waived_by uuid,
+  waived_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT student_fee_accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT student_fee_accounts_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT student_fee_accounts_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT student_fee_accounts_fee_structure_id_fkey FOREIGN KEY (fee_structure_id) REFERENCES public.fee_structures(id),
+  CONSTRAINT student_fee_accounts_waived_by_fkey FOREIGN KEY (waived_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.fee_payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  fee_account_id uuid NOT NULL,
+  receipt_number text NOT NULL,
+  amount bigint NOT NULL CHECK (amount > 0),
+  payment_method text NOT NULL DEFAULT 'cash'::text CHECK (payment_method = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'mobile_money'::text, 'cheque'::text, 'other'::text])),
+  payment_reference text,
+  payment_date date NOT NULL DEFAULT CURRENT_DATE,
+  notes text,
+  recorded_by uuid,
+  voided boolean DEFAULT false,
+  voided_at timestamp with time zone,
+  voided_by uuid,
+  void_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  invoice_id uuid,
+  CONSTRAINT fee_payments_pkey PRIMARY KEY (id),
+  CONSTRAINT fee_payments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT fee_payments_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT fee_payments_fee_account_id_fkey FOREIGN KEY (fee_account_id) REFERENCES public.student_fee_accounts(id),
+  CONSTRAINT fee_payments_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES public.users(id),
+  CONSTRAINT fee_payments_voided_by_fkey FOREIGN KEY (voided_by) REFERENCES public.users(id),
+  CONSTRAINT fee_payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id)
+);
+CREATE TABLE public.receipt_number_sequences (
+  school_id uuid NOT NULL,
+  year integer NOT NULL,
+  next_seq integer NOT NULL DEFAULT 1,
+  CONSTRAINT receipt_number_sequences_pkey PRIMARY KEY (school_id, year),
+  CONSTRAINT receipt_number_sequences_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.timetable_periods (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  term_id uuid,
+  day_of_week smallint NOT NULL CHECK (day_of_week >= 1 AND day_of_week <= 7),
+  period_number smallint NOT NULL CHECK (period_number > 0),
+  start_time time without time zone NOT NULL,
+  end_time time without time zone NOT NULL,
+  subject_id uuid NOT NULL,
+  teacher_id uuid NOT NULL,
+  track text NOT NULL DEFAULT 'secular'::text CHECK (track = ANY (ARRAY['secular'::text, 'theology'::text, 'both'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT timetable_periods_pkey PRIMARY KEY (id),
+  CONSTRAINT timetable_periods_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT timetable_periods_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.school_classes(id),
+  CONSTRAINT timetable_periods_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
+  CONSTRAINT timetable_periods_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.school_subjects(id),
+  CONSTRAINT timetable_periods_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.school_period_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  period_number smallint NOT NULL CHECK (period_number > 0),
+  label text,
+  start_time time without time zone NOT NULL,
+  end_time time without time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT school_period_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT school_period_templates_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  code text NOT NULL,
+  name text NOT NULL,
+  account_type text NOT NULL CHECK (account_type = ANY (ARRAY['income'::text, 'expense'::text])),
+  category text,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.income_sources (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  name text NOT NULL,
+  category text,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT income_sources_pkey PRIMARY KEY (id),
+  CONSTRAINT income_sources_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT income_sources_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.other_income (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  source_id uuid,
+  account_id uuid,
+  reference_number text NOT NULL,
+  description text NOT NULL,
+  income_date date NOT NULL DEFAULT CURRENT_DATE,
+  total_amount bigint NOT NULL CHECK (total_amount > 0),
+  payment_method text NOT NULL DEFAULT 'cash'::text CHECK (payment_method = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'mobile_money'::text, 'cheque'::text, 'other'::text])),
+  payment_reference text,
+  notes text,
+  recorded_by uuid,
+  voided boolean NOT NULL DEFAULT false,
+  voided_at timestamp with time zone,
+  voided_by uuid,
+  void_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT other_income_pkey PRIMARY KEY (id),
+  CONSTRAINT other_income_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES public.users(id),
+  CONSTRAINT other_income_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT other_income_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.income_sources(id),
+  CONSTRAINT other_income_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
+  CONSTRAINT other_income_voided_by_fkey FOREIGN KEY (voided_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.other_income_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  other_income_id uuid NOT NULL,
+  account_id uuid,
+  description text NOT NULL,
+  amount bigint NOT NULL CHECK (amount > 0),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT other_income_items_pkey PRIMARY KEY (id),
+  CONSTRAINT other_income_items_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT other_income_items_other_income_id_fkey FOREIGN KEY (other_income_id) REFERENCES public.other_income(id),
+  CONSTRAINT other_income_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.invoices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  fee_structure_id uuid,
+  invoice_number text NOT NULL,
+  invoice_date date NOT NULL DEFAULT CURRENT_DATE,
+  due_date date,
+  term_name text NOT NULL,
+  academic_year integer NOT NULL,
+  status text NOT NULL DEFAULT 'unpaid'::text CHECK (status = ANY (ARRAY['unpaid'::text, 'partial'::text, 'paid'::text, 'cancelled'::text, 'voided'::text])),
+  total_amount bigint NOT NULL CHECK (total_amount > 0),
+  amount_paid bigint NOT NULL DEFAULT 0,
+  balance bigint DEFAULT (total_amount - amount_paid),
+  notes text,
+  created_by uuid,
+  cancelled_at timestamp with time zone,
+  cancelled_by uuid,
+  cancel_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoices_pkey PRIMARY KEY (id),
+  CONSTRAINT invoices_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT invoices_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT invoices_fee_structure_id_fkey FOREIGN KEY (fee_structure_id) REFERENCES public.fee_structures(id),
+  CONSTRAINT invoices_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id),
+  CONSTRAINT invoices_cancelled_by_fkey FOREIGN KEY (cancelled_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.invoice_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  invoice_id uuid NOT NULL,
+  account_id uuid,
+  description text NOT NULL,
+  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_amount bigint NOT NULL CHECK (unit_amount > 0),
+  total_amount bigint DEFAULT (quantity * unit_amount),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoice_items_pkey PRIMARY KEY (id),
+  CONSTRAINT invoice_items_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT invoice_items_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id),
+  CONSTRAINT invoice_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.budget_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  account_id uuid,
+  term_name text NOT NULL,
+  academic_year integer NOT NULL,
+  name text NOT NULL,
+  category text,
+  budget_type text NOT NULL DEFAULT 'expense'::text CHECK (budget_type = ANY (ARRAY['income'::text, 'expense'::text])),
+  budgeted_amount bigint NOT NULL CHECK (budgeted_amount >= 0),
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT budget_items_pkey PRIMARY KEY (id),
+  CONSTRAINT budget_items_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT budget_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
+  CONSTRAINT budget_items_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.invoice_number_sequences (
+  school_id uuid NOT NULL,
+  year integer NOT NULL,
+  next_seq integer NOT NULL DEFAULT 1,
+  CONSTRAINT invoice_number_sequences_pkey PRIMARY KEY (school_id, year),
+  CONSTRAINT invoice_number_sequences_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.income_reference_sequences (
+  school_id uuid NOT NULL,
+  year integer NOT NULL,
+  next_seq integer NOT NULL DEFAULT 1,
+  CONSTRAINT income_reference_sequences_pkey PRIMARY KEY (school_id, year),
+  CONSTRAINT income_reference_sequences_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+);
+CREATE TABLE public.student_import_jobs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  school_id uuid NOT NULL,
+  imported_by uuid,
+  filename text,
+  total_rows integer NOT NULL DEFAULT 0,
+  valid_count integer NOT NULL DEFAULT 0,
+  error_count integer NOT NULL DEFAULT 0,
+  duplicate_count integer NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'preview'::text CHECK (status = ANY (ARRAY['preview'::text, 'committed'::text, 'expired'::text, 'failed'::text])),
+  options jsonb NOT NULL DEFAULT '{}'::jsonb,
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '02:00:00'::interval),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT student_import_jobs_pkey PRIMARY KEY (id),
+  CONSTRAINT student_import_jobs_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT student_import_jobs_imported_by_fkey FOREIGN KEY (imported_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.student_import_staging (
+  job_id uuid NOT NULL,
+  row_number integer NOT NULL,
+  payload jsonb NOT NULL,
+  fingerprint text NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['valid'::text, 'error'::text, 'duplicate_in_file'::text, 'duplicate_existing'::text])),
+  issues jsonb NOT NULL DEFAULT '[]'::jsonb,
+  CONSTRAINT student_import_staging_pkey PRIMARY KEY (job_id, row_number),
+  CONSTRAINT student_import_staging_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.student_import_jobs(id)
 );

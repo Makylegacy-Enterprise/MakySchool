@@ -24,6 +24,7 @@ from app.middleware.rate_limit import (
 from app.middleware.request_id import RequestIDMiddleware
 from app.routers import (
     analytics,
+    attendance,
     auth,
     billing,
     classes,
@@ -186,6 +187,8 @@ def create_app() -> FastAPI:
     mount_v1_and_legacy(app, fees.router, "/api/schools/fees")
     mount_v1_and_legacy(app, billing.router, "/api/schools/billing")
     mount_v1_and_legacy(app, timetable.router, "/api/schools/timetable")
+    mount_v1_and_legacy(app, attendance.router, "/api/schools/attendance")
+
     mount_v1_and_legacy(app, analytics.router, "/api/schools/analytics")
 
     mount_v1_and_legacy(app, webhooks.router, "/api/webhooks")

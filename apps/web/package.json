@@ -12,6 +12,7 @@
   "dependencies": {
     "@makyschool/shared": "*",
     "@makyschool/ui": "*",
+    "@tanstack/react-query": "^5.101.2",
     "@types/papaparse": "^5.5.2",
     "jose": "^6.2.3",
     "lucide-react": "^1.17.0",
