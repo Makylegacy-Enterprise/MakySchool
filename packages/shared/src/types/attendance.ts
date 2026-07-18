@@ -11,6 +11,11 @@ export interface DailyAttendanceStudent {
 export interface DailyAttendanceResponse {
   date: string;
   classId: string;
+  // The specific teacher period/subject slot this roster is scoped to.
+  // Populated for the teacher "take attendance" flow (backed by
+  // timetable_periods). Null when an admin/head_teacher is reviewing a
+  // class-wide submission without pinning to one specific period.
+  timetableSlotId: string | null;
   termId: string;
   alreadySubmitted: boolean;
   students: DailyAttendanceStudent[];
@@ -23,7 +28,10 @@ export interface BulkAttendanceEntry {
 }
 
 export interface BulkAttendancePayload {
-  classId: string;
+  // Required: attendance is recorded per timetable period/subject slot, not
+  // just per class. This ties each submission to exactly one teacher-period
+  // combination and is what the unique lock constraint is enforced against.
+  timetableSlotId: string;
   termId: string;
   date: string; // YYYY-MM-DD
   entries: BulkAttendanceEntry[];
@@ -32,7 +40,7 @@ export interface BulkAttendancePayload {
 export interface BulkAttendanceResponse {
   saved: number;
   date: string;
-  classId: string;
+  timetableSlotId: string;
 }
 
 export interface AttendanceSummary {
@@ -46,7 +54,7 @@ export interface MonthlyAttendanceRow {
   studentId: string;
   studentName: string;
   learnerId: string;
-  days: Record<string, AttendanceStatus>; // key = "YYYY-MM-DD"
+  days: Record<string, AttendanceStatus>; // key = "YYYY-MM-DD (Subject)"
   daysAttended: number;
   totalDays: number;
 }
@@ -55,6 +63,6 @@ export interface MonthlyAttendanceResponse {
   classId: string;
   termId: string;
   month: string; // YYYY-MM
-  schoolDays: string[]; // dates that had any attendance taken
+  schoolDays: string[]; // date+subject columns that had any attendance taken
   rows: MonthlyAttendanceRow[];
 }

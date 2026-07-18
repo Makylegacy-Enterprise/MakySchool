@@ -2,9 +2,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '@/lib/api/attendance';
-import type { AttendanceStatus } from '@makyschool/shared';
+import type { DailyAttendanceResponse } from '@makyschool/shared';
 
-// Shape matching our updated FastAPI backend structures
+// Local-only shape: not part of the shared attendance domain model, just the
+// options returned by /schools/attendance/timetable for populating the
+// teacher's period selector.
 export interface TimetableSlot {
   timetableSlotId: string;
   classId: string;
@@ -14,27 +16,13 @@ export interface TimetableSlot {
   alreadySubmitted: boolean;
 }
 
-export interface AttendanceStudentRow {
-  studentId: string;
-  studentName: string;
-  learnerId: string;
-  status: AttendanceStatus | null;
-  notes: string;
-}
-
-export interface DailyAttendanceResponse {
-  date: string;
-  timetableSlotId: string;
-  termId: string;
-  alreadySubmitted: boolean;
-  students: AttendanceStudentRow[];
-}
-
 export const attendanceKeys = {
   timetable: (date: string) =>
                ['attendance', 'timetable', date] as const,
   daily:   (timetableSlotId: string, termId: string, date: string) =>
                ['attendance', 'daily', timetableSlotId, termId, date] as const,
+  dailyByClass: (classId: string, termId: string, date: string) =>
+               ['attendance', 'daily-by-class', classId, termId, date] as const,
   monthly: (classId: string, termId: string, month: string) =>
                ['attendance', 'monthly', classId, termId, month] as const,
   summary: (studentId: string, termId: string) =>
@@ -42,19 +30,28 @@ export const attendanceKeys = {
 };
 
 /**
- * ── NEW: Fetch Teacher's Active Timetable Slots ─────────────────────────────
+ * ── Fetch Teacher's Active Timetable Slots ──────────────────────────────────
+ *
+ * Note: we deliberately do NOT pass an explicit generic to useQuery here
+ * (e.g. useQuery<TimetableSlot[]>({...})). With TanStack Query v5's overload
+ * resolution, an explicit generic on the hook call can fail to unify with
+ * the queryFn's inferred type and silently fall back to `unknown`/`never`,
+ * producing confusing "can't index type never[]" errors far from the real
+ * cause. Annotating the queryFn's return type instead gives v5's inference
+ * everything it needs without ambiguity.
  */
 export function useTeacherTimetable(date: string, enabled = true) {
-  return useQuery<TimetableSlot[]>({
+  return useQuery({
     queryKey: attendanceKeys.timetable(date),
-    queryFn:  () => attendanceApi.getTimetable(date),
-    enabled:  enabled && !!date,
-    staleTime: 60_000, // 1 minute fresh time buffer
+    queryFn: (): Promise<TimetableSlot[]> => attendanceApi.getTimetable(date),
+    enabled: enabled && !!date,
+    staleTime: 60_000,
   });
 }
 
 /**
- * ── UPDATED: Fetch Daily Register via Timetable Slot ────────────────────────
+ * ── Fetch Daily Register via a teacher's specific Timetable Slot ───────────
+ * Use this for the teacher "take attendance" flow only.
  */
 export function useDailyAttendance(
   timetableSlotId: string,
@@ -62,10 +59,32 @@ export function useDailyAttendance(
   date: string,
   enabled = true
 ) {
-  return useQuery<DailyAttendanceResponse>({
+  return useQuery({
     queryKey: attendanceKeys.daily(timetableSlotId, termId, date),
-    queryFn:  () => attendanceApi.getDaily(timetableSlotId, termId, date),
-    enabled:  enabled && !!timetableSlotId && !!termId && !!date,
+    queryFn: (): Promise<DailyAttendanceResponse> =>
+      attendanceApi.getDaily(timetableSlotId, termId, date),
+    enabled: enabled && !!timetableSlotId && !!termId && !!date,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * ── Fetch Daily Register for a whole Class (admin/head_teacher review) ─────
+ * Independent of any specific teacher period. Do not pass a timetable/period
+ * id through this hook — the backend requires class_id for this path and
+ * will reject a timetable_slot_id value here.
+ */
+export function useDailyAttendanceByClass(
+  classId: string,
+  termId: string,
+  date: string,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: attendanceKeys.dailyByClass(classId, termId, date),
+    queryFn: (): Promise<DailyAttendanceResponse> =>
+      attendanceApi.getDailyByClass(classId, termId, date),
+    enabled: enabled && !!classId && !!termId && !!date,
     staleTime: 30_000,
   });
 }
@@ -78,10 +97,10 @@ export function useMonthlyAttendance(
 ) {
   return useQuery({
     queryKey: attendanceKeys.monthly(classId, termId, month),
-    queryFn:  () => attendanceApi.getMonthly(classId, termId, month),
-    enabled:  enabled && !!classId && !!termId && !!month,
+    queryFn: () => attendanceApi.getMonthly(classId, termId, month),
+    enabled: enabled && !!classId && !!termId && !!month,
     staleTime: 60_000,
-    placeholderData: (prev) => prev, 
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -92,14 +111,17 @@ export function useAttendanceSummary(
 ) {
   return useQuery({
     queryKey: attendanceKeys.summary(studentId, termId),
-    queryFn:  () => attendanceApi.getSummary(studentId, termId),
-    enabled:  enabled && !!studentId && !!termId,
+    queryFn: () => attendanceApi.getSummary(studentId, termId),
+    enabled: enabled && !!studentId && !!termId,
     staleTime: 60_000,
   });
 }
 
 /**
- * ── UPDATED: Save Bulk Attendance Entry Mutation ───────────────────────────
+ * ── Save Bulk Attendance Entry Mutation ─────────────────────────────────────
+ * Note: the backend permanently locks a submission — a second attempt for
+ * the same period+date returns 409 ALREADY_SUBMITTED. Callers should catch
+ * that and treat it as "someone already submitted this," not retry.
  */
 export function useSaveAttendance() {
   const qc = useQueryClient();
@@ -111,15 +133,15 @@ export function useSaveAttendance() {
       entries: Array<{ studentId: string; status: string; notes?: string }>;
     }) => attendanceApi.saveBulk(payload),
     onSuccess: (_, variables) => {
-      // Clear specific active roster query cache immediately
       qc.invalidateQueries({
         queryKey: ['attendance', 'daily', variables.timetableSlotId, variables.termId, variables.date],
       });
-      // Force visual timetable checkmark refresh (the little green indicator checkmarks)
+      qc.invalidateQueries({
+        queryKey: ['attendance', 'daily-by-class'],
+      });
       qc.invalidateQueries({
         queryKey: ['attendance', 'timetable', variables.date],
       });
-      // Invalidate monthly data charts across active queries
       qc.invalidateQueries({
         queryKey: ['attendance', 'monthly'],
       });

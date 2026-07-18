@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 from zoneinfo import ZoneInfo
 
 import asyncpg
@@ -183,13 +183,21 @@ async def get_teacher_timetable_slots(
 
 
 # ── GET /schools/attendance ────────────────────────────────────────────────────
-# Daily roster fetch handler driven by the specified timetable period.
+# Daily roster fetch handler supporting both Teacher (per-period) and
+# Admin/Head Teacher (class-wide) views.
+#
+# - Teachers MUST supply timetable_slot_id. Ownership of that period is
+#   verified, and the associated class_id is derived from it.
+# - Admins/Head Teachers MUST supply class_id directly. They are not tied to
+#   a specific period, since they're reviewing whatever a teacher already
+#   submitted for that class on that date.
 
 @router.get("")
 async def get_daily_attendance(
     ctx: TenantCtx,
     conn: asyncpg.Connection = Depends(get_db),
-    timetable_slot_id: uuid.UUID = Query(...),
+    timetable_slot_id: Optional[uuid.UUID] = Query(None),
+    class_id: Optional[uuid.UUID] = Query(None),
     term_id: uuid.UUID = Query(...),
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):
@@ -200,14 +208,28 @@ async def get_daily_attendance(
     parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
 
     if actor["role"] == "teacher":
-        class_id = await _assert_teacher_owns_period(conn, actor_id, timetable_slot_id, school_id)
+        if not timetable_slot_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "Teachers must provide timetable_slot_id to view records.",
+                    "code": "VALIDATION_ERROR",
+                },
+            )
+        target_class_id = await _assert_teacher_owns_period(conn, actor_id, timetable_slot_id, school_id)
     else:
-        class_id = await conn.fetchval(
-            "SELECT class_id FROM timetable_periods WHERE id = $1 AND school_id = $2",
-            timetable_slot_id, school_id
-        )
+        # Admins/head teachers review by class directly — timetable_slot_id is
+        # a teacher-period concept (timetable_periods.id) and must never be
+        # used to resolve a class_id here; that was the source of a previous bug.
         if not class_id:
-            raise HTTPException(status_code=404, detail="Timetable period not found.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "Admins must provide class_id to view a class-wide roster.",
+                    "code": "VALIDATION_ERROR",
+                },
+            )
+        target_class_id = class_id
 
     rows = await conn.fetch(
         """
@@ -219,21 +241,23 @@ async def get_daily_attendance(
           a.notes
         FROM students s
         LEFT JOIN attendance a
-          ON a.student_id          = s.id
-         AND a.timetable_period_id = $1
-         AND a.date                = $2
-         AND a.term_id             = $3
-         AND a.school_id           = $4
+          ON a.student_id  = s.id
+         AND a.date        = $1
+         AND a.term_id     = $2
+         AND a.school_id   = $3
+         -- Filter by period only when a teacher's specific slot is in view;
+         -- admins reviewing a class see whichever period's entries exist.
+         AND ($4::uuid IS NULL OR a.timetable_period_id = $4)
         WHERE s.current_class_id = $5
           AND s.status = 'active'
-          AND s.school_id = $4
+          AND s.school_id = $3
         ORDER BY s.full_name ASC
         """,
-        timetable_slot_id,
         parsed_date,
         term_id,
         school_id,
-        class_id,
+        timetable_slot_id,
+        target_class_id,
     )
 
     already_submitted = any(r["status"] is not None for r in rows)
@@ -241,7 +265,8 @@ async def get_daily_attendance(
     return {
         "data": {
             "date": date,
-            "timetableSlotId": str(timetable_slot_id),
+            "classId": str(target_class_id),
+            "timetableSlotId": str(timetable_slot_id) if timetable_slot_id else None,
             "termId": str(term_id),
             "alreadySubmitted": already_submitted,
             "students": [
@@ -259,7 +284,10 @@ async def get_daily_attendance(
 
 
 # ── POST /schools/attendance/bulk ─────────────────────────────────────────────
-# Upserts the complete list of logged student records for a given period+date.
+# Inserts the complete list of logged student records for a given period+date.
+# Attendance is permanently locked once submitted — there is no edit path.
+# A 409 is returned if this period+date has already been recorded.
+
 @router.post("/bulk")
 async def save_bulk_attendance(
     body: BulkAttendancePayload,
@@ -282,8 +310,25 @@ async def save_bulk_attendance(
 
     class_id = await _assert_teacher_owns_period(conn, actor_id, body.timetable_period_id, school_id)
 
-    # Note: Removed the rigid 409 already_submitted block to let your frontend 
-    # "Edit Attendance" mode seamlessly overwrite or modify rows.
+    already_submitted = await conn.fetchval(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM attendance
+            WHERE timetable_period_id = $1 AND date = $2 AND school_id = $3
+        )
+        """,
+        body.timetable_period_id,
+        parsed_date,
+        school_id,
+    )
+    if already_submitted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "Attendance for this period has already been submitted and is locked.",
+                "code": "ALREADY_SUBMITTED",
+            },
+        )
 
     async with conn.transaction():
         for entry in body.entries:
@@ -293,14 +338,6 @@ async def save_bulk_attendance(
                   (school_id, class_id, timetable_period_id, student_id, term_id,
                    date, status, notes, recorded_by)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT ON CONSTRAINT attendance_unique_student_date
-                DO UPDATE SET
-                    status            = EXCLUDED.status,
-                    notes             = EXCLUDED.notes,
-                    timetable_period_id = EXCLUDED.timetable_period_id,
-                    term_id           = EXCLUDED.term_id,
-                    recorded_by       = EXCLUDED.recorded_by,
-                    updated_at        = NOW();
                 """,
                 school_id,
                 class_id,
@@ -320,6 +357,8 @@ async def save_bulk_attendance(
             "timetableSlotId": str(body.timetable_period_id),
         }
     }
+
+
 # ── GET /schools/attendance/monthly ──────────────────────────────────────────
 # Compiles the comprehensive matrix grid for structural history rendering.
 
