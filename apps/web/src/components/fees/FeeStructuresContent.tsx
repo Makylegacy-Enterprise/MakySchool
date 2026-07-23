@@ -11,7 +11,9 @@ import { EmptyState } from "@makyschool/ui/components/ui/EmptyState";
 import { PageHeader } from "@makyschool/ui/components/ui/PageHeader";
 import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { useApiSWR } from "@/hooks/useApiSWR";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { useFeesBasePath } from "@/hooks/useFeesBasePath";
 import { formatUGX } from "@/lib/formatCurrency";
 import { type FeeStructure } from "@/lib/fees/types";
@@ -21,6 +23,15 @@ export function FeeStructuresContent() {
   const [addOpen, setAddOpen] = useState(false);
   const [assignStructure, setAssignStructure] = useState<FeeStructure | null>(null);
   const { data, error, isLoading, mutate } = useApiSWR<FeeStructure[]>("/schools/fees/structures");
+  const structures = data ?? [];
+  const {
+    paged,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total,
+  } = useClientPagination({ items: structures });
 
   return (
     <section className="space-y-6">
@@ -61,7 +72,8 @@ export function FeeStructuresContent() {
           }
           isEmpty={(rows) => rows.length === 0}
         >
-          {(structures) => (
+          {() => (
+            <div className="space-y-4 p-4">
             <div className="overflow-x-auto">
               <table className="ms-table w-full min-w-[44rem]">
                 <thead>
@@ -76,7 +88,7 @@ export function FeeStructuresContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {structures.map((row) => (
+                  {paged.map((row) => (
                     <tr key={row.id}>
                       <td className="font-medium">{row.class_name}</td>
                       <td className="whitespace-nowrap">
@@ -119,6 +131,15 @@ export function FeeStructuresContent() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="structures"
+            />
             </div>
           )}
         </QueryState>

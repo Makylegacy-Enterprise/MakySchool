@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Shield } from "lucide-react";
 import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
 import { EmptyState } from "@makyschool/ui/components/ui/EmptyState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { useMyDisciplineIncidents } from "@/hooks/useDiscipline";
 import { useCurrentTerm } from "@/hooks/useCurrentTerm";
 import type { DisciplineIncidentType } from "@makyschool/shared";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
 const TYPE_BADGE: { [K in DisciplineIncidentType]: string } = {
   minor: "badge-warning",
@@ -28,24 +30,25 @@ export function TeacherDisciplineContent() {
   const { data: term } = useCurrentTerm();
   const termId = term?.id ?? "";
   const [incidentType, setIncidentType] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const { data: incidents = [], isPending, isError, refetch } = useMyDisciplineIncidents(
-    termId,
+  useEffect(() => {
+    setPage(1);
+  }, [incidentType, termId, pageSize]);
+
+  const { data, isPending, isError, refetch } = useMyDisciplineIncidents(
+    { termId: termId || undefined, page, limit: pageSize },
     !!termId,
   );
+
+  const incidents = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   const rows = useMemo(() => {
     if (!incidentType) return incidents;
     return incidents.filter((i) => i.incidentType === incidentType);
   }, [incidents, incidentType]);
-
-  const counts = useMemo(() => {
-    const base = { minor: 0, major: 0, commendation: 0, total: incidents.length };
-    for (const i of incidents) {
-      base[i.incidentType] += 1;
-    }
-    return base;
-  }, [incidents]);
 
   return (
     <DashboardPage
@@ -60,23 +63,9 @@ export function TeacherDisciplineContent() {
       }
     >
       <div className="space-y-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: "Logged this term", value: counts.total },
-            { label: "Minor", value: counts.minor },
-            { label: "Major", value: counts.major },
-            { label: "Commendations", value: counts.commendation },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-xl border border-theme bg-theme-surface px-4 py-3"
-            >
-              <p className="text-xs text-theme-muted">{stat.label}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-theme-primary">
-                {stat.value}
-              </p>
-            </div>
-          ))}
+        <div className="rounded-xl border border-theme bg-theme-surface px-4 py-3 sm:max-w-xs">
+          <p className="text-xs text-theme-muted">Logged this term</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-theme-primary">{total}</p>
         </div>
 
         <div className="flex flex-col gap-3 rounded-xl border border-theme bg-theme-raised/40 p-4 sm:flex-row sm:items-end sm:justify-between">
@@ -127,7 +116,7 @@ export function TeacherDisciplineContent() {
             }
           />
         ) : (
-          <>
+          <div className="space-y-4">
             <div className="hidden overflow-hidden rounded-xl border border-theme bg-theme-surface md:block">
               <div className="overflow-x-auto">
                 <table className="ms-table w-full min-w-[40rem]">
@@ -198,7 +187,18 @@ export function TeacherDisciplineContent() {
                 </article>
               ))}
             </div>
-          </>
+
+            {!incidentType ? (
+              <TablePagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                noun="incidents"
+              />
+            ) : null}
+          </div>
         )}
 
         <div className="flex items-start gap-3 rounded-xl border border-dashed border-theme bg-theme-surface px-4 py-4">

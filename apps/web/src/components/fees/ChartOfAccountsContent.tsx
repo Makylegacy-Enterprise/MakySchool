@@ -13,7 +13,9 @@ import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
 import { Modal } from "@makyschool/ui/components/ui/Modal";
 import { CanDo } from "@/components/ui/CanDo";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { useApiSWR } from "@/hooks/useApiSWR";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiClient } from "@/lib/api/client";
 import type { ChartAccount, ChartAccountType } from "@/lib/fees/types";
 import { useToast } from "@/providers/ToastProvider";
@@ -33,6 +35,14 @@ export function ChartOfAccountsContent({ embedded = false }: { embedded?: boolea
   const query = useMemo(() => `/schools/fees/accounts?account_type=${tab}`, [tab]);
   const { data, error, isLoading, mutate } = useApiSWR<{ accounts: ChartAccount[] }>(query);
   const accounts = data?.accounts ?? [];
+  const {
+    paged,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total,
+  } = useClientPagination({ items: accounts, resetDeps: [tab] });
 
   async function handleDeactivate() {
     if (!deactivateTarget) return;
@@ -117,7 +127,8 @@ export function ChartOfAccountsContent({ embedded = false }: { embedded?: boolea
           }
           isEmpty={(rows) => rows.length === 0}
         >
-          {(rows) => (
+          {() => (
+            <div className="space-y-4 p-4">
             <div className="overflow-x-auto">
               <table className="ms-table w-full min-w-[32rem]">
                 <thead>
@@ -130,7 +141,7 @@ export function ChartOfAccountsContent({ embedded = false }: { embedded?: boolea
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((account) => (
+                  {paged.map((account) => (
                     <tr key={account.id} className={!account.is_active ? "opacity-60" : undefined}>
                       <td className="font-mono text-sm">{account.code}</td>
                       <td className="font-medium">{account.name}</td>
@@ -153,6 +164,15 @@ export function ChartOfAccountsContent({ embedded = false }: { embedded?: boolea
                   ))}
                 </tbody>
               </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="accounts"
+            />
             </div>
           )}
         </QueryState>

@@ -117,6 +117,7 @@ export interface ImportRowError {
   message: string;
 }
 
+/** Canonical paginated list envelope for new/updated list endpoints. */
 export interface PaginatedResponse<T> {
   items: T[];
   page: number;

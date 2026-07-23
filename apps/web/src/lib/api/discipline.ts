@@ -4,17 +4,22 @@ import type {
   DisciplineStudentDossier,
   CreateDisciplineIncidentPayload,
   RepeatOffendersResponse,
+  PaginatedResponse,
 } from '@makyschool/shared';
 
+export type DisciplineListParams = {
+  termId?: string;
+  incidentType?: string;
+  classId?: string;
+  studentId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+};
+
 export const disciplineApi = {
-  list(params: {
-    termId?: string;
-    incidentType?: string;
-    classId?: string;
-    studentId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  } = {}) {
+  list(params: DisciplineListParams = {}) {
     const q = new URLSearchParams();
     if (params.termId) q.set('term_id', params.termId);
     if (params.incidentType) q.set('incident_type', params.incidentType);
@@ -22,16 +27,22 @@ export const disciplineApi = {
     if (params.studentId) q.set('student_id', params.studentId);
     if (params.dateFrom) q.set('date_from', params.dateFrom);
     if (params.dateTo) q.set('date_to', params.dateTo);
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
     const qs = q.toString();
-    return apiClient<DisciplineIncident[]>(
+    return apiClient<PaginatedResponse<DisciplineIncident>>(
       `/api/schools/discipline${qs ? `?${qs}` : ''}`,
     ).then((r) => r.data);
   },
 
-  listMine(termId?: string) {
-    const qs = termId ? `?term_id=${termId}` : '';
-    return apiClient<DisciplineIncident[]>(
-      `/api/schools/discipline/mine${qs}`,
+  listMine(params: { termId?: string; page?: number; limit?: number } = {}) {
+    const q = new URLSearchParams();
+    if (params.termId) q.set('term_id', params.termId);
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    const qs = q.toString();
+    return apiClient<PaginatedResponse<DisciplineIncident>>(
+      `/api/schools/discipline/mine${qs ? `?${qs}` : ''}`,
     ).then((r) => r.data);
   },
 

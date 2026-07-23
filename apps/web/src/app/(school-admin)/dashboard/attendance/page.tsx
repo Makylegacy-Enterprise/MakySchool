@@ -26,6 +26,8 @@ import {
   AttendanceAdminCharts,
   AttendanceAdminChartsSkeleton,
 } from '@/components/school-admin/attendance/AttendanceAdminCharts';
+import { TablePagination } from '@makyschool/ui/components/ui/TablePagination';
+import { useClientPagination } from '@/hooks/useClientPagination';
 
 type StatusConfig = {
   label: string;
@@ -179,6 +181,18 @@ export default function SchoolAdminAttendancePage() {
       s.studentName.toLowerCase().includes(q) || s.learnerId.toLowerCase().includes(q)
     );
   }, [data, searchQuery]);
+
+  const {
+    paged: pagedStudents,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total: filteredTotal,
+  } = useClientPagination({
+    items: filteredStudents,
+    resetDeps: [selectedDate, selectedClassId, searchQuery],
+  });
 
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
@@ -399,7 +413,7 @@ export default function SchoolAdminAttendancePage() {
               title="Attendance Not Yet Submitted"
               body={`No teacher has submitted attendance for ${selectedClass ? `${selectedClass.level} ${selectedClass.stream}` : 'this class'} on ${new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`}
             />
-          ) : filteredStudents.length === 0 ? (
+          ) : filteredTotal === 0 ? (
             <EmptyState
               icon={Search}
               title="No Matching Students"
@@ -438,9 +452,11 @@ export default function SchoolAdminAttendancePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {filteredStudents.map((student, idx) => (
+                      {pagedStudents.map((student, idx) => (
                         <tr key={student.studentId} className="bg-background hover:bg-muted/10 transition-colors">
-                          <td className="px-5 py-4 text-muted-foreground font-medium">{idx + 1}</td>
+                          <td className="px-5 py-4 text-muted-foreground font-medium">
+                            {(page - 1) * pageSize + idx + 1}
+                          </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
@@ -477,14 +493,16 @@ export default function SchoolAdminAttendancePage() {
               </div>
 
               <div className="md:hidden space-y-2.5">
-                {filteredStudents.map((student, idx) => (
+                {pagedStudents.map((student, idx) => (
                   <div key={student.studentId} className="rounded-xl border border-border bg-background p-4 shadow-sm">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-xs font-bold text-indigo-600 dark:text-indigo-400">
                         {initials(student.studentName)}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground truncate">{idx + 1}. {student.studentName}</p>
+                        <p className="font-semibold text-foreground truncate">
+                          {(page - 1) * pageSize + idx + 1}. {student.studentName}
+                        </p>
                         <p className="font-mono text-[11px] text-muted-foreground/80">{student.learnerId}</p>
                       </div>
                       {student.status ? (
@@ -508,6 +526,15 @@ export default function SchoolAdminAttendancePage() {
                   </div>
                 ))}
               </div>
+
+              <TablePagination
+                page={page}
+                pageSize={pageSize}
+                total={filteredTotal}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                noun="students"
+              />
             </>
           )}
         </>

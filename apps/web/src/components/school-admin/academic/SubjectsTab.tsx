@@ -232,12 +232,10 @@ function SubjectsTable({
     setQuery,
     page,
     setPage,
-    totalPages,
     paged,
     filteredCount,
-    rangeStart,
-    rangeEnd,
-  } = useListControls({ items, pageSize: 20, filterFn });
+    pageSize,
+  } = useListControls({ items, filterFn });
 
   return (
     <AcademicTableShell
@@ -250,12 +248,11 @@ function SubjectsTable({
       }
       footer={
         <AcademicPagination
-          rangeStart={rangeStart}
-          rangeEnd={rangeEnd}
-          total={filteredCount}
           page={page}
-          totalPages={totalPages}
+          pageSize={pageSize}
+          total={filteredCount}
           onPageChange={setPage}
+          noun="subjects"
         />
       }
     >

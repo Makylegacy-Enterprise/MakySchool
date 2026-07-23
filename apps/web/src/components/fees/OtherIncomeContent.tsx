@@ -27,8 +27,9 @@ import {
   type PaymentMethod,
 } from "@/lib/fees/types";
 import { useToast } from "@/providers/ToastProvider";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
-const PAGE_SIZE = 25;
+
 
 const METHOD_OPTIONS: Array<{ value: PaymentMethod | ""; label: string }> = [
   { value: "", label: "All" },
@@ -42,6 +43,7 @@ const METHOD_OPTIONS: Array<{ value: PaymentMethod | ""; label: string }> = [
 export function OtherIncomeContent() {
   const { toast } = useToast();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [addOpen, setAddOpen] = useState(false);
@@ -52,11 +54,11 @@ export function OtherIncomeContent() {
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const query = useMemo(() => {
-    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+    const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (paymentMethod) params.set("payment_method", paymentMethod);
     return `/schools/fees/other-income?${params.toString()}`;
-  }, [page, debouncedSearch, paymentMethod]);
+  }, [page, pageSize, debouncedSearch, paymentMethod]);
 
   const { data, error, isLoading, mutate } = useApiSWR<OtherIncomeListResponse>(query);
   const items = data?.items ?? [];
@@ -148,15 +150,17 @@ export function OtherIncomeContent() {
           />
         }
         footer={
-          total > PAGE_SIZE ? (
-            <TablePagination
-              summary={`Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} records`}
-              onPrevious={() => setPage((p) => p - 1)}
-              onNext={() => setPage((p) => p + 1)}
-              previousDisabled={page <= 1}
-              nextDisabled={page * PAGE_SIZE >= total}
-            />
-          ) : null
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="records"
+          />
         }
       >
         <QueryState

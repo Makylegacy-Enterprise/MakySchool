@@ -168,6 +168,8 @@ async def list_users(
     role: str | None = Query(None),
     is_active: str | None = Query(None),
     search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
 ):
     school_id, _user = ctx
 
@@ -193,6 +195,14 @@ async def list_users(
         params.append(f"%{search.strip()}%")
         param_index += 1
 
+    where_clause = " AND ".join(conditions)
+    total = await conn.fetchval(
+        f"SELECT COUNT(*)::int FROM users u WHERE {where_clause}",
+        *params,
+    )
+    offset = (page - 1) * limit
+    list_params = [*params, limit, offset]
+
     rows = await conn.fetch(
         f"""
         SELECT
@@ -207,10 +217,11 @@ async def list_users(
           u.deactivated_reason,
           u.created_at
         FROM users u
-        WHERE {" AND ".join(conditions)}
+        WHERE {where_clause}
         ORDER BY {USER_DISPLAY_NAME_SQL} ASC
+        LIMIT ${param_index} OFFSET ${param_index + 1}
         """,
-        *params,
+        *list_params,
     )
 
     teacher_ids = [
@@ -220,14 +231,21 @@ async def list_users(
     ]
     assignment_map = await _fetch_assignments_for_users(conn, school_id, teacher_ids)
 
-    data = []
+    items = []
     for row in rows:
         item = _serialize_row(row)
         item["role"] = normalize_user_role(row["role"])
         item["assigned_classes"] = assignment_map.get(str(row["id"]), [])
-        data.append(item)
+        items.append(item)
 
-    return {"data": data}
+    return {
+        "data": {
+            "items": items,
+            "page": page,
+            "limit": limit,
+            "total": int(total or 0),
+        }
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

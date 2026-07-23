@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, CalendarDays, Search, Shield, Users } from "lucide-react";
-import { formatClassLabel } from "@makyschool/shared/constants";
+import { formatClassLabel, DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
+import type { PaginatedResponse } from "@makyschool/shared/types";
 import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
 import { EmptyState } from "@makyschool/ui/components/ui/EmptyState";
 import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
 import { SkeletonTable } from "@makyschool/ui/components/ui/Skeleton";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { useApiSWR } from "@/hooks/useApiSWR";
 import { TeacherStudentAttendanceModal } from "@/components/teacher/TeacherStudentAttendanceModal";
 import { LogDisciplineIncidentPanel } from "@/components/discipline/LogDisciplineIncidentPanel";
@@ -34,23 +36,35 @@ type Tab = "students" | "marks" | "subjects";
 export function TeacherClassDetailContent({ classId }: { classId: string }) {
   const [tab, setTab] = useState<Tab>("students");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [disciplineStudent, setDisciplineStudent] = useState<StudentRow | null>(null);
   const classQuery = useApiSWR<ClassDetail>(`/schools/classes/${classId}`);
-  const studentsQuery = useApiSWR<StudentRow[]>(
-    tab === "students" ? `/schools/classes/${classId}/students` : null,
-  );
 
-  const filteredStudents = useMemo(() => {
-    const rows = studentsQuery.data ?? [];
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        (s.learner_id ?? "").toLowerCase().includes(q),
-    );
-  }, [studentsQuery.data, search]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, pageSize, classId]);
+
+  const studentsPath = useMemo(() => {
+    if (tab !== "students") return null;
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(pageSize),
+    });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    return `/schools/classes/${classId}/students?${params.toString()}`;
+  }, [tab, classId, page, pageSize, debouncedSearch]);
+
+  const studentsQuery = useApiSWR<PaginatedResponse<StudentRow>>(studentsPath);
+  const students = studentsQuery.data?.items ?? [];
+  const studentsTotal = studentsQuery.data?.total ?? 0;
 
   return (
     <DashboardPage maxWidth="7xl" embedded>
@@ -205,22 +219,24 @@ export function TeacherClassDetailContent({ classId }: { classId: string }) {
                     data={studentsQuery.data}
                     onRetry={() => void studentsQuery.mutate()}
                     loading={<SkeletonTable rows={5} />}
-                    isEmpty={(rows) => rows.length === 0}
+                    isEmpty={(payload) => payload.total === 0}
                     empty={
                       <EmptyState
-                        title="No students in this class yet"
-                        description="Students enrolled in this class will appear here."
+                        title={
+                          debouncedSearch
+                            ? "No matching students"
+                            : "No students in this class yet"
+                        }
+                        description={
+                          debouncedSearch
+                            ? "Try a different name or learner ID."
+                            : "Students enrolled in this class will appear here."
+                        }
                       />
                     }
                   >
-                    {() =>
-                      filteredStudents.length === 0 ? (
-                        <EmptyState
-                          title="No matching students"
-                          description="Try a different name or learner ID."
-                        />
-                      ) : (
-                        <>
+                    {() => (
+                      <div className="space-y-4">
                           <div className="hidden overflow-hidden rounded-xl border border-theme bg-theme-surface md:block">
                             <table className="ms-table w-full">
                               <thead className="bg-table-header text-xs font-medium uppercase tracking-wide text-theme-muted">
@@ -232,7 +248,7 @@ export function TeacherClassDetailContent({ classId }: { classId: string }) {
                                 </tr>
                               </thead>
                               <tbody>
-                                {filteredStudents.map((student) => (
+                                {students.map((student) => (
                                   <tr
                                     key={student.id}
                                     className="border-t border-theme hover:bg-theme-raised/50"
@@ -271,7 +287,7 @@ export function TeacherClassDetailContent({ classId }: { classId: string }) {
                           </div>
 
                           <div className="space-y-3 md:hidden">
-                            {filteredStudents.map((student) => (
+                            {students.map((student) => (
                               <article
                                 key={student.id}
                                 className="rounded-xl border border-theme bg-theme-surface p-4"
@@ -304,9 +320,17 @@ export function TeacherClassDetailContent({ classId }: { classId: string }) {
                               </article>
                             ))}
                           </div>
-                        </>
-                      )
-                    }
+
+                          <TablePagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={studentsTotal}
+                            onPageChange={setPage}
+                            onPageSizeChange={setPageSize}
+                            noun="students"
+                          />
+                      </div>
+                    )}
                   </QueryState>
                 </div>
               ) : null}

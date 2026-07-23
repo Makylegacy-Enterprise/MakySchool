@@ -12,10 +12,12 @@ import { EmptyState } from "@makyschool/ui/components/ui/EmptyState";
 import { PageHeader } from "@makyschool/ui/components/ui/PageHeader";
 import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { useApiSWR } from "@/hooks/useApiSWR";
 import { useFeesBasePath } from "@/hooks/useFeesBasePath";
 import { formatUGX } from "@/lib/formatCurrency";
 import { type OutstandingStudent } from "@/lib/fees/types";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
 type OutstandingResponse = {
   students: OutstandingStudent[];
@@ -34,7 +36,14 @@ export function OutstandingFeesContent() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [smsOpen, setSmsOpen] = useState(false);
   const [waiveStudent, setWaiveStudent] = useState<OutstandingStudent | null>(null);
-  const { data, error, isLoading, mutate } = useApiSWR<OutstandingResponse>("/schools/fees/outstanding?limit=100");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  const query = useMemo(
+    () => `/schools/fees/outstanding?page=${page}&limit=${pageSize}`,
+    [page, pageSize],
+  );
+  const { data, error, isLoading, mutate } = useApiSWR<OutstandingResponse>(query);
 
   const selectedStudents = useMemo(
     () => (data?.students ?? []).filter((student) => selected.has(student.account_id)),
@@ -200,6 +209,17 @@ export function OutstandingFeesContent() {
                 </table>
               </div>
             </DataListPanel>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={payload.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              noun="students"
+            />
           </>
         )}
       </QueryState>

@@ -35,8 +35,9 @@ import type {
 import { paymentMethodLabel } from "@/lib/fees/types";
 import type { ClassOption } from "@/lib/students/types";
 import { useToast } from "@/providers/ToastProvider";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
-const PAGE_SIZE = 20;
+
 
 type OutstandingResponse = {
   students: OutstandingStudent[];
@@ -62,6 +63,7 @@ export function RecordPaymentContent() {
   const [classId, setClassId] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "unpaid" | "partial">("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const [selectedStudentsMap, setSelectedStudentsMap] = useState<Map<string, OutstandingStudent>>(
@@ -85,12 +87,12 @@ export function RecordPaymentContent() {
   const listQuery = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", String(PAGE_SIZE));
+    params.set("limit", String(pageSize));
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (classId) params.set("class_id", classId);
     if (statusFilter) params.set("status", statusFilter);
     return `/schools/fees/outstanding?${params.toString()}`;
-  }, [page, debouncedSearch, classId, statusFilter]);
+  }, [page, pageSize, debouncedSearch, classId, statusFilter]);
 
   const { data, error: listError, isLoading, mutate } = useApiSWR<OutstandingResponse>(listQuery);
   const { data: classes = [] } = useApiSWR<ClassOption[]>("/schools/classes");
@@ -100,7 +102,6 @@ export function RecordPaymentContent() {
 
   const students = data?.students ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const selectedAccountIds = useMemo(
     () => new Set(selectedStudentsMap.keys()),
@@ -424,15 +425,17 @@ export function RecordPaymentContent() {
               />
             }
             footer={
-              total > 0 ? (
-                <TablePagination
-                  summary={`Page ${page} of ${totalPages} · ${total} student${total === 1 ? "" : "s"}`}
-                  onPrevious={() => setPage((current) => Math.max(1, current - 1))}
-                  onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
-                  previousDisabled={page <= 1}
-                  nextDisabled={page >= totalPages}
-                />
-              ) : undefined
+              <TablePagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                noun="students"
+              />
             }
           >
             {students.length === 0 ? (

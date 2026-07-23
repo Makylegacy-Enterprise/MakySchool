@@ -176,12 +176,10 @@ function ByClassView({
     setQuery: setSubjectSearch,
     page,
     setPage,
-    totalPages,
     paged: pagedSubjects,
     filteredCount,
-    rangeStart,
-    rangeEnd,
-  } = useListControls({ items: subjects, pageSize: 15, filterFn: subjectFilterFn, resetDeps: [linkFilter, selectedClass?.id] });
+    pageSize,
+  } = useListControls({ items: subjects, filterFn: subjectFilterFn, resetDeps: [linkFilter, selectedClass?.id] });
 
   const linkedCount = selectedClass?.subjects.length ?? 0;
 
@@ -263,12 +261,11 @@ function ByClassView({
           footer={
             filteredCount > 0 ? (
               <AcademicPagination
-                rangeStart={rangeStart}
-                rangeEnd={rangeEnd}
-                total={filteredCount}
                 page={page}
-                totalPages={totalPages}
+                pageSize={pageSize}
+                total={filteredCount}
                 onPageChange={setPage}
+                noun="subjects"
               />
             ) : null
           }
@@ -390,14 +387,11 @@ function BySubjectView({
     setQuery: setClassSearch,
     page,
     setPage,
-    totalPages,
     paged: pagedClasses,
     filteredCount,
-    rangeStart,
-    rangeEnd,
+    pageSize: classPageSize,
   } = useListControls({
     items: sortedClasses,
-    pageSize: 20,
     filterFn: classFilterFn,
     resetDeps: [levelFilter, linkFilter, selectedSubject?.id],
   });
@@ -566,12 +560,11 @@ function BySubjectView({
             <>
               {filteredCount > 0 ? (
                 <AcademicPagination
-                  rangeStart={rangeStart}
-                  rangeEnd={rangeEnd}
-                  total={filteredCount}
                   page={page}
-                  totalPages={totalPages}
+                  pageSize={classPageSize}
+                  total={filteredCount}
                   onPageChange={setPage}
+                  noun="classes"
                 />
               ) : null}
               {selectedSubject ? (

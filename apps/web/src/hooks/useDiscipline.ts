@@ -1,41 +1,46 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { disciplineApi } from '@/lib/api/discipline';
+import { disciplineApi, type DisciplineListParams } from '@/lib/api/discipline';
 import type { CreateDisciplineIncidentPayload } from '@makyschool/shared';
+import { DEFAULT_PAGE_SIZE } from '@makyschool/shared/constants';
 
 export const disciplineKeys = {
   list: (filters: string) => ['discipline', 'list', filters] as const,
-  mine: (termId: string) => ['discipline', 'mine', termId] as const,
+  mine: (key: string) => ['discipline', 'mine', key] as const,
   student: (studentId: string, termId: string) =>
     ['discipline', 'student', studentId, termId] as const,
   flags: (termId: string) => ['discipline', 'flags', termId] as const,
 };
 
-export function useDisciplineList(
-  filters: {
-    termId?: string;
-    incidentType?: string;
-    classId?: string;
-    studentId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  },
-  enabled = true,
-) {
+export function useDisciplineList(filters: DisciplineListParams, enabled = true) {
   const key = JSON.stringify(filters);
   return useQuery({
     queryKey: disciplineKeys.list(key),
-    queryFn: () => disciplineApi.list(filters),
+    queryFn: () =>
+      disciplineApi.list({
+        ...filters,
+        page: filters.page ?? 1,
+        limit: filters.limit ?? DEFAULT_PAGE_SIZE,
+      }),
     enabled,
     staleTime: 30_000,
   });
 }
 
-export function useMyDisciplineIncidents(termId = '', enabled = true) {
+export function useMyDisciplineIncidents(
+  params: { termId?: string; page?: number; limit?: number } = {},
+  enabled = true,
+) {
+  const key = JSON.stringify(params);
   return useQuery({
-    queryKey: disciplineKeys.mine(termId),
-    queryFn: () => disciplineApi.listMine(termId || undefined),
+    queryKey: disciplineKeys.mine(key),
+    queryFn: () =>
+      disciplineApi.listMine({
+        termId: params.termId,
+        page: params.page ?? 1,
+        limit: params.limit ?? DEFAULT_PAGE_SIZE,
+      }),
     enabled,
     staleTime: 30_000,
   });

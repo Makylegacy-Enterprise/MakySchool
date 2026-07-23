@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
-import type { MakySchoolRole } from "@makyschool/shared/types";
+import type { MakySchoolRole, PaginatedResponse } from "@makyschool/shared/types";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 import { CanDo } from "@/components/ui/CanDo";
 import { AddUserPanel } from "@/components/users/AddUserPanel";
 import { EditUserPanel } from "@/components/users/EditUserPanel";
@@ -14,6 +15,7 @@ import { ListToolbar } from "@makyschool/ui/components/ui/ListToolbar";
 import { PageHeader } from "@makyschool/ui/components/ui/PageHeader";
 import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { SkeletonTable } from "@makyschool/ui/components/ui/Skeleton";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { useApiSWR } from "@/hooks/useApiSWR";
 import { useCan } from "@/hooks/useCurrentRole";
 import { formatClassAssignmentLabel, roleBadgeClass, roleLabel } from "@/lib/users/display";
@@ -47,20 +49,29 @@ export function UsersPageContent() {
   const canManage = useCan("manageUsers");
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, pageSize]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (tab !== "all") params.set("role", tab);
     if (search.trim()) params.set("search", search.trim());
-    const qs = params.toString();
-    return `/schools/users${qs ? `?${qs}` : ""}`;
-  }, [tab, search]);
+    params.set("page", String(page));
+    params.set("limit", String(pageSize));
+    return `/schools/users?${params.toString()}`;
+  }, [tab, search, page, pageSize]);
 
-  const { data, error, isLoading, isValidating, mutate } = useApiSWR<UserRow[]>(query);
+  const { data, error, isLoading, isValidating, mutate } =
+    useApiSWR<PaginatedResponse<UserRow>>(query);
 
-  const users = data ?? [];
+  const users = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   useEffect(() => {
     if (searchParams.get("add") === "1" && canManage) {
@@ -122,9 +133,9 @@ export function UsersPageContent() {
         error={error}
         isLoading={isLoading}
         isValidating={isValidating}
-        data={users}
+        data={data}
         onRetry={() => void mutate()}
-        isEmpty={(items) => items.length === 0}
+        isEmpty={(payload) => payload.total === 0}
         loading={<SkeletonTable rows={6} />}
         empty={
           <EmptyState
@@ -137,78 +148,88 @@ export function UsersPageContent() {
           />
         }
       >
-        {(items) => (
-          <DataTable>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Assigned classes</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((user) => {
-                const classLabels = user.assigned_classes.map(formatClassAssignmentLabel);
-                const truncated =
-                  classLabels.length > 2
-                    ? `${classLabels.slice(0, 2).join(", ")}…`
-                    : classLabels.join(", ") || "—";
+        {() => (
+          <div className="space-y-4">
+            <DataTable>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Assigned classes</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => {
+                  const classLabels = user.assigned_classes.map(formatClassAssignmentLabel);
+                  const truncated =
+                    classLabels.length > 2
+                      ? `${classLabels.slice(0, 2).join(", ")}…`
+                      : classLabels.join(", ") || "—";
 
-                return (
-                  <tr key={user.id}>
-                    <td>
-                      <Link
-                        href={`/dashboard/users/${user.id}`}
-                        className="block font-medium text-theme-primary hover:text-theme-accent"
-                      >
-                        {user.full_name}
-                      </Link>
-                      <span className="text-xs text-theme-muted">{user.email}</span>
-                    </td>
-                    <td>
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${roleBadgeClass(user.role)}`}
-                      >
-                        {roleLabel(user.role)}
-                      </span>
-                    </td>
-                    <td className="max-w-[12.5rem] truncate text-muted">{truncated}</td>
-                    <td>
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          user.is_active ? "badge-success" : "badge-danger"
-                        }`}
-                      >
-                        {user.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditUser(user)}
-                          className="text-sm font-medium text-theme-accent hover:underline"
+                  return (
+                    <tr key={user.id}>
+                      <td>
+                        <Link
+                          href={`/dashboard/users/${user.id}`}
+                          className="block font-medium text-theme-primary hover:text-theme-accent"
                         >
-                          Edit
-                        </button>
-                        <CanDo action="manageUsers">
+                          {user.full_name}
+                        </Link>
+                        <span className="text-xs text-theme-muted">{user.email}</span>
+                      </td>
+                      <td>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${roleBadgeClass(user.role)}`}
+                        >
+                          {roleLabel(user.role)}
+                        </span>
+                      </td>
+                      <td className="max-w-[12.5rem] truncate text-muted">{truncated}</td>
+                      <td>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            user.is_active ? "badge-success" : "badge-danger"
+                          }`}
+                        >
+                          {user.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <div className="flex justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => setEditUser(user)}
-                            className="text-sm font-medium text-theme-muted hover:text-theme-primary"
+                            className="text-sm font-medium text-theme-accent hover:underline"
                           >
-                            {user.is_active ? "Deactivate" : "Reactivate"}
+                            Edit
                           </button>
-                        </CanDo>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </DataTable>
+                          <CanDo action="manageUsers">
+                            <button
+                              type="button"
+                              onClick={() => setEditUser(user)}
+                              className="text-sm font-medium text-theme-muted hover:text-theme-primary"
+                            >
+                              {user.is_active ? "Deactivate" : "Reactivate"}
+                            </button>
+                          </CanDo>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </DataTable>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="users"
+            />
+          </div>
         )}
       </QueryState>
 

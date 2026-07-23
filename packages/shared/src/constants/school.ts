@@ -10,4 +10,4 @@ export const SUBSCRIPTION_STATUSES = {
   EXPIRED: "expired",
 } as const;
 
-export const DEFAULT_PAGE_LIMIT = 20;
+export const DEFAULT_PAGE_LIMIT = 25;

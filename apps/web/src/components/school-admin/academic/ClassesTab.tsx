@@ -276,12 +276,10 @@ function ClassesTable({
     setQuery,
     page,
     setPage,
-    totalPages,
     paged,
     filteredCount,
-    rangeStart,
-    rangeEnd,
-  } = useListControls({ items, pageSize: 20, filterFn, resetDeps: [levelFilter, statusFilter] });
+    pageSize,
+  } = useListControls({ items, filterFn, resetDeps: [levelFilter, statusFilter] });
 
   return (
     <AcademicTableShell
@@ -316,12 +314,11 @@ function ClassesTable({
       }
       footer={
         <AcademicPagination
-          rangeStart={rangeStart}
-          rangeEnd={rangeEnd}
-          total={filteredCount}
           page={page}
-          totalPages={totalPages}
+          pageSize={pageSize}
+          total={filteredCount}
           onPageChange={setPage}
+          noun="classes"
         />
       }
     >

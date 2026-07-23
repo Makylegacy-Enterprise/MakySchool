@@ -21,8 +21,9 @@ import { useApiSWR } from "@/hooks/useApiSWR";
 import { useFeesBasePath } from "@/hooks/useFeesBasePath";
 import { formatUGX } from "@/lib/formatCurrency";
 import { invoiceStatusBadgeClass, type InvoiceListResponse, type InvoiceStatus } from "@/lib/fees/types";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
-const PAGE_SIZE = 25;
+
 
 const STATUS_OPTIONS: Array<{ value: InvoiceStatus | ""; label: string }> = [
   { value: "", label: "All" },
@@ -35,6 +36,7 @@ const STATUS_OPTIONS: Array<{ value: InvoiceStatus | ""; label: string }> = [
 export function InvoicesContent() {
   const base = useFeesBasePath();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<InvoiceStatus | "">("");
   const [termName, setTermName] = useState("");
@@ -43,13 +45,13 @@ export function InvoicesContent() {
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const query = useMemo(() => {
-    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+    const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (status) params.set("status", status);
     if (termName.trim()) params.set("term_name", termName.trim());
     if (academicYear.trim()) params.set("academic_year", academicYear.trim());
     return `/schools/fees/invoices?${params.toString()}`;
-  }, [page, debouncedSearch, status, termName, academicYear]);
+  }, [page, pageSize, debouncedSearch, status, termName, academicYear]);
 
   const { data, error, isLoading, mutate } = useApiSWR<InvoiceListResponse>(query);
   const invoices = data?.invoices ?? [];
@@ -151,15 +153,17 @@ export function InvoicesContent() {
           />
         }
         footer={
-          total > PAGE_SIZE ? (
-            <TablePagination
-              summary={`Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} invoices`}
-              onPrevious={() => setPage((p) => p - 1)}
-              onNext={() => setPage((p) => p + 1)}
-              previousDisabled={page <= 1}
-              nextDisabled={page * PAGE_SIZE >= total}
-            />
-          ) : null
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="invoices"
+          />
         }
       >
         <QueryState

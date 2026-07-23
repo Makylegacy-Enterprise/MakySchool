@@ -1,10 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DEFAULT_PAGE_SIZE,
+  clampPage,
+  pageRange,
+  slicePage,
+  totalPages as calcTotalPages,
+} from "@makyschool/shared/constants";
 
 export function useListControls<T>({
   items,
-  pageSize = 15,
+  pageSize = DEFAULT_PAGE_SIZE,
   filterFn,
   resetDeps = [],
 }: {
@@ -32,28 +39,28 @@ export function useListControls<T>({
     [items, query, filterFn],
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = Math.min(page, totalPages);
+  const pages = calcTotalPages(filtered.length, pageSize);
+  const safePage = clampPage(page, filtered.length, pageSize);
 
-  const paged = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, safePage, pageSize]);
+  const paged = useMemo(
+    () => slicePage(filtered, safePage, pageSize),
+    [filtered, safePage, pageSize],
+  );
 
-  const rangeStart = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(safePage * pageSize, filtered.length);
+  const { start: rangeStart, end: rangeEnd } = pageRange(safePage, pageSize, filtered.length);
 
   return {
     query,
     setQuery,
     page: safePage,
     setPage,
-    totalPages,
+    totalPages: pages,
     paged,
     filteredCount: filtered.length,
     totalCount: items.length,
     rangeStart,
     rangeEnd,
+    pageSize,
     hasFilters: query.trim().length > 0,
     clearFilters: () => setQuery(""),
   };

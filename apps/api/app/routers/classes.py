@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated, Any
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
@@ -212,30 +212,61 @@ async def get_class_students(
     ctx: Ctx,
     allowed_class_ids: AllowedClassIds,
     conn: asyncpg.Connection = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+    search: str | None = Query(None),
 ):
     school_id, _user = ctx
 
     if not assert_class_access(allowed_class_ids, class_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden"})
 
+    conditions = [
+        "s.school_id = $1",
+        "s.status = 'active'",
+        "s.current_class_id = $2",
+    ]
+    params: list[Any] = [school_id, class_id]
+    idx = 3
+
+    if search and search.strip():
+        conditions.append(
+            f"(s.full_name ILIKE ${idx} OR COALESCE(s.learner_id, '') ILIKE ${idx})"
+        )
+        params.append(f"%{search.strip()}%")
+        idx += 1
+
+    where_sql = " AND ".join(conditions)
+    total = await conn.fetchval(
+        f"SELECT COUNT(*)::int FROM students s WHERE {where_sql}",
+        *params,
+    )
+    offset = (page - 1) * limit
+    list_params = [*params, limit, offset]
+
     rows = await conn.fetch(
-        """
+        f"""
         SELECT
            s.id,
            s.full_name AS name,
            s.learner_id,
            s.gender
          FROM students s
-         WHERE s.school_id = $1
-           AND s.status = 'active'
-           AND s.current_class_id = $2
+         WHERE {where_sql}
          ORDER BY s.full_name ASC
+         LIMIT ${idx} OFFSET ${idx + 1}
         """,
-        school_id,
-        class_id,
+        *list_params,
     )
 
-    return {"data": _rows(rows)}
+    return {
+        "data": {
+            "items": _rows(rows),
+            "page": page,
+            "limit": limit,
+            "total": int(total or 0),
+        }
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

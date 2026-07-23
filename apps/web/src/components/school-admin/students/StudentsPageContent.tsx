@@ -37,8 +37,7 @@ import {
   formatDobWithAge,
   studentInitials,
 } from "@/lib/validation/students";
-
-const PAGE_SIZE = 25;
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
 function groupClasses(classes: ClassOption[]) {
   const primary = classes.filter((item) =>
@@ -63,6 +62,7 @@ export function StudentsPageContent() {
   const [gender, setGender] = useState("");
   const [status, setStatus] = useState<"active" | "withdrawn">("active");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -76,13 +76,13 @@ export function StudentsPageContent() {
   const query = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", String(PAGE_SIZE));
+    params.set("limit", String(pageSize));
     params.set("status", status);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (classId) params.set("class_id", classId);
     if (gender) params.set("gender", gender);
     return `/schools/students?${params.toString()}`;
-  }, [page, debouncedSearch, classId, gender, status]);
+  }, [page, pageSize, debouncedSearch, classId, gender, status]);
 
   const { data, error, isLoading, mutate } = useApiSWR<StudentsListResponse>(query);
   const { data: classes = [] } = useApiSWR<ClassOption[]>("/schools/classes");
@@ -110,9 +110,6 @@ export function StudentsPageContent() {
       router.replace("/dashboard/students", { scroll: false });
     }
   }, [searchParams, canManage, router]);
-
-  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   async function openEdit(student: StudentListItem) {
     const response = await apiClient<StudentDetail>(`/schools/students/${student.id}`);
@@ -235,15 +232,17 @@ export function StudentsPageContent() {
           />
         }
         footer={
-          total > PAGE_SIZE ? (
-            <TablePagination
-              summary={`Showing ${rangeStart}–${rangeEnd} of ${total} students`}
-              onPrevious={() => setPage((value) => value - 1)}
-              onNext={() => setPage((value) => value + 1)}
-              previousDisabled={page <= 1}
-              nextDisabled={rangeEnd >= total}
-            />
-          ) : null
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="students"
+          />
         }
       >
         <QueryState

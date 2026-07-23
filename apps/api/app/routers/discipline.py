@@ -273,6 +273,8 @@ async def list_incidents(
     date_from: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     date_to: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     include_voided: bool = Query(False),
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
 ):
     school_id, actor = ctx
     _require_allowed(actor)
@@ -324,17 +326,32 @@ async def list_incidents(
         params.append(datetime.strptime(date_to, "%Y-%m-%d").date())
         idx += 1
 
+    where_sql = " AND ".join(conditions)
+    total = await conn.fetchval(
+        f"SELECT COUNT(*)::int FROM discipline_records d WHERE {where_sql}",
+        *params,
+    )
+    offset = (page - 1) * limit
+    list_params = [*params, limit, offset]
+
     rows = await conn.fetch(
         f"""
         {INCIDENT_SELECT}
-        WHERE {" AND ".join(conditions)}
+        WHERE {where_sql}
         ORDER BY d.incident_date DESC, d.created_at DESC
-        LIMIT 500
+        LIMIT ${idx} OFFSET ${idx + 1}
         """,
-        *params,
+        *list_params,
     )
 
-    return {"data": [_serialize(r) for r in rows]}
+    return {
+        "data": {
+            "items": [_serialize(r) for r in rows],
+            "page": page,
+            "limit": limit,
+            "total": int(total or 0),
+        }
+    }
 
 
 @router.get("/mine")
@@ -342,6 +359,8 @@ async def list_my_incidents(
     ctx: TenantCtx,
     conn: asyncpg.Connection = Depends(get_db),
     term_id: Optional[uuid.UUID] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
 ):
     school_id, actor = ctx
     _require_allowed(actor)
@@ -349,20 +368,37 @@ async def list_my_incidents(
 
     conditions = ["d.school_id = $1", "d.recorded_by = $2", "d.status = 'active'"]
     params: list[Any] = [school_id, actor_id]
+    idx = 3
     if term_id:
-        conditions.append("d.term_id = $3")
+        conditions.append(f"d.term_id = ${idx}")
         params.append(term_id)
+        idx += 1
+
+    where_sql = " AND ".join(conditions)
+    total = await conn.fetchval(
+        f"SELECT COUNT(*)::int FROM discipline_records d WHERE {where_sql}",
+        *params,
+    )
+    offset = (page - 1) * limit
+    list_params = [*params, limit, offset]
 
     rows = await conn.fetch(
         f"""
         {INCIDENT_SELECT}
-        WHERE {" AND ".join(conditions)}
+        WHERE {where_sql}
         ORDER BY d.incident_date DESC, d.created_at DESC
-        LIMIT 200
+        LIMIT ${idx} OFFSET ${idx + 1}
         """,
-        *params,
+        *list_params,
     )
-    return {"data": [_serialize(r) for r in rows]}
+    return {
+        "data": {
+            "items": [_serialize(r) for r in rows],
+            "page": page,
+            "limit": limit,
+            "total": int(total or 0),
+        }
+    }
 
 
 @router.get("/flags/repeat-offenders")

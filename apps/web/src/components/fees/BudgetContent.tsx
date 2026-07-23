@@ -12,9 +12,11 @@ import { PageHeader } from "@makyschool/ui/components/ui/PageHeader";
 import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
 import { Modal } from "@makyschool/ui/components/ui/Modal";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 import { CanDo } from "@/components/ui/CanDo";
 import { FeesStatStrip } from "@/components/fees/FeesStatStrip";
 import { useApiSWR } from "@/hooks/useApiSWR";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiClient } from "@/lib/api/client";
 import { formatUGX, formatUGXInput, parseUGXInput } from "@/lib/formatCurrency";
 import type { BudgetReport, BudgetType, ChartAccount } from "@/lib/fees/types";
@@ -43,6 +45,14 @@ export function BudgetContent() {
 
   const rows = (data?.items ?? []).filter((row) => row.budget_type === tab);
   const summary = data?.summary;
+  const {
+    paged,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total,
+  } = useClientPagination({ items: rows, resetDeps: [tab, termName, academicYear] });
 
   async function handleDelete() {
     if (!deleteId) return;
@@ -147,7 +157,8 @@ export function BudgetContent() {
           }
           isEmpty={(items) => items.length === 0}
         >
-          {(items) => (
+          {() => (
+            <div className="space-y-4 p-4">
             <div className="overflow-x-auto">
               <table className="ms-table w-full min-w-[40rem]">
                 <thead>
@@ -164,7 +175,7 @@ export function BudgetContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row) => (
+                  {paged.map((row) => (
                     <tr key={row.id}>
                       <td className="font-medium">{row.name}</td>
                       <td className="font-mono text-sm">{row.account_code ?? "—"}</td>
@@ -199,6 +210,15 @@ export function BudgetContent() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="lines"
+            />
             </div>
           )}
         </QueryState>

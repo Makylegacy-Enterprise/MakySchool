@@ -1,14 +1,16 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, Shield } from 'lucide-react';
 import { EmptyState } from '@makyschool/ui/components/ui/EmptyState';
 import { Skeleton } from '@makyschool/ui/components/ui/Skeleton';
+import { TablePagination } from '@makyschool/ui/components/ui/TablePagination';
 import { useDisciplineList, useRepeatOffenders } from '@/hooks/useDiscipline';
 import { useCurrentTerm } from '@/hooks/useCurrentTerm';
 import type { DisciplineIncidentType } from '@makyschool/shared';
+import { DEFAULT_PAGE_SIZE } from '@makyschool/shared/constants';
 import { todayEAT } from '@/lib/api/attendance';
 
 const TYPE_BADGE: { [K in DisciplineIncidentType]: string } = {
@@ -33,8 +35,18 @@ function DisciplineRegistryContent() {
   const termId = term?.id ?? '';
 
   const [incidentType, setIncidentType] = useState('');
-  const [dateFrom, setDateFrom] = useState(term?.startDate || '');
+  const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState(todayEAT());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  useEffect(() => {
+    if (term?.startDate) setDateFrom(term.startDate);
+  }, [term?.startDate]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [incidentType, dateFrom, dateTo, flaggedOnly, termId, pageSize]);
 
   const { data: flags } = useRepeatOffenders(termId, !!termId);
   const flaggedIds = useMemo(
@@ -42,19 +54,24 @@ function DisciplineRegistryContent() {
     [flags],
   );
 
-  const { data: incidents = [], isPending, isError, refetch } = useDisciplineList(
+  const { data, isPending, isError, refetch } = useDisciplineList(
     {
       termId: termId || undefined,
-      incidentType: incidentType || undefined,
+      incidentType: incidentType || (flaggedOnly ? 'major' : undefined),
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      page,
+      limit: pageSize,
     },
     !!termId,
   );
 
+  const incidents = data?.items ?? [];
+  const total = data?.total ?? 0;
+
   const rows = useMemo(() => {
     if (!flaggedOnly) return incidents;
-    return incidents.filter((i) => flaggedIds.has(i.studentId) && i.incidentType === 'major');
+    return incidents.filter((i) => flaggedIds.has(i.studentId));
   }, [incidents, flaggedOnly, flaggedIds]);
 
   return (
@@ -168,56 +185,68 @@ function DisciplineRegistryContent() {
           description="Adjust filters or log an incident from a student profile."
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-theme bg-theme-surface">
-          <div className="overflow-x-auto">
-            <table className="ms-table w-full min-w-[56rem]">
-              <thead className="bg-table-header text-xs font-medium uppercase tracking-wide text-theme-muted">
-                <tr>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Student</th>
-                  <th className="px-4 py-3 text-left">Class</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="px-4 py-3 text-left">Description</th>
-                  <th className="px-4 py-3 text-left">Recorded by</th>
-                  <th className="px-4 py-3 text-left">Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((inc) => (
-                  <tr key={inc.id} className="border-t border-theme align-top hover:bg-theme-raised/40">
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-theme-primary">
-                      {formatDate(inc.incidentDate)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/dashboard/students/${inc.studentId}`}
-                        className="font-medium text-theme-accent hover:underline"
-                      >
-                        {inc.studentName}
-                      </Link>
-                      <p className="font-mono text-[11px] text-theme-muted">{inc.learnerId}</p>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-theme-muted">{inc.className || '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${TYPE_BADGE[inc.incidentType]}`}>
-                        {inc.incidentType}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-theme-primary max-w-sm">
-                      <p className="line-clamp-2">{inc.description}</p>
-                      {inc.actionTaken ? (
-                        <p className="mt-1 text-xs text-theme-muted">Action: {inc.actionTaken}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-theme-muted">{inc.recordedByName || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-theme-muted max-w-[10rem]">
-                      {inc.headTeacherRemarks || '—'}
-                    </td>
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border border-theme bg-theme-surface">
+            <div className="overflow-x-auto">
+              <table className="ms-table w-full min-w-[56rem]">
+                <thead className="bg-table-header text-xs font-medium uppercase tracking-wide text-theme-muted">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Student</th>
+                    <th className="px-4 py-3 text-left">Class</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-left">Recorded by</th>
+                    <th className="px-4 py-3 text-left">Remarks</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map((inc) => (
+                    <tr key={inc.id} className="border-t border-theme align-top hover:bg-theme-raised/40">
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-theme-primary">
+                        {formatDate(inc.incidentDate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/dashboard/students/${inc.studentId}`}
+                          className="font-medium text-theme-accent hover:underline"
+                        >
+                          {inc.studentName}
+                        </Link>
+                        <p className="font-mono text-[11px] text-theme-muted">{inc.learnerId}</p>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-theme-muted">{inc.className || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${TYPE_BADGE[inc.incidentType]}`}>
+                          {inc.incidentType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-theme-primary max-w-sm">
+                        <p className="line-clamp-2">{inc.description}</p>
+                        {inc.actionTaken ? (
+                          <p className="mt-1 text-xs text-theme-muted">Action: {inc.actionTaken}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-theme-muted">{inc.recordedByName || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-theme-muted max-w-[10rem]">
+                        {inc.headTeacherRemarks || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+          {!flaggedOnly ? (
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="incidents"
+            />
+          ) : null}
         </div>
       )}
     </div>

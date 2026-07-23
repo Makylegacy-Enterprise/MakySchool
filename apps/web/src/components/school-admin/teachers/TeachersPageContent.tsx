@@ -28,8 +28,7 @@ import { useCan } from "@/hooks/useCurrentRole";
 import { apiClient } from "@/lib/api/client";
 import type { ClassOption, TeacherDetail, TeacherListItem, TeachersListResponse } from "@/lib/teachers/types";
 import { teacherInitials } from "@/lib/validation/teachers";
-
-const PAGE_SIZE = 20;
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
 function uniqueClassPills(assignments: TeacherListItem["assignments"]) {
   const seen = new Set<string>();
@@ -52,6 +51,7 @@ export function TeachersPageContent() {
   const [status, setStatus] = useState<"" | "true" | "false">("");
   const [classId, setClassId] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -64,12 +64,12 @@ export function TeachersPageContent() {
   const query = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", String(PAGE_SIZE));
+    params.set("limit", String(pageSize));
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (status) params.set("is_active", status);
     if (classId) params.set("class_id", classId);
     return `/schools/teachers?${params.toString()}`;
-  }, [page, debouncedSearch, status, classId]);
+  }, [page, pageSize, debouncedSearch, status, classId]);
 
   const { data, error, isLoading, mutate } = useApiSWR<TeachersListResponse>(query);
   const { data: classes } = useApiSWR<ClassOption[]>("/schools/classes");
@@ -175,15 +175,17 @@ export function TeachersPageContent() {
           />
         }
         footer={
-          total > PAGE_SIZE ? (
-            <TablePagination
-              summary={`Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} teachers`}
-              onPrevious={() => setPage((p) => p - 1)}
-              onNext={() => setPage((p) => p + 1)}
-              previousDisabled={page <= 1}
-              nextDisabled={page * PAGE_SIZE >= total}
-            />
-          ) : null
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="teachers"
+          />
         }
       >
         <QueryState

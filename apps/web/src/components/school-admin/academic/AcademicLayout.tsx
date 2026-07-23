@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@makyschool/ui/lib/cn";
+import { TablePagination } from "@makyschool/ui/components/ui/TablePagination";
 
 export function AcademicTabNav<T extends string>({
   tabs,
@@ -135,51 +136,36 @@ export function AcademicTableShell({
 }
 
 export function AcademicPagination({
-  rangeStart,
-  rangeEnd,
-  total,
   page,
-  totalPages,
+  pageSize,
+  total,
   onPageChange,
+  onPageSizeChange,
+  noun,
 }: {
-  rangeStart: number;
-  rangeEnd: number;
-  total: number;
   page: number;
-  totalPages: number;
+  pageSize: number;
+  total: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  noun?: string;
+  /** @deprecated unused — kept for call-site compatibility during migration */
+  rangeStart?: number;
+  rangeEnd?: number;
+  totalPages?: number;
 }) {
-  if (total === 0) {
-    return null;
-  }
+  if (total === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3 border-t border-theme px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-theme-muted">
-        Showing <span className="font-medium text-theme-primary">{rangeStart}–{rangeEnd}</span> of{" "}
-        <span className="font-medium text-theme-primary">{total}</span>
-      </p>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
-          className="ms-btn-ghost rounded-lg px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <span className="px-2 text-sm tabular-nums text-theme-muted">
-          {page} / {totalPages}
-        </span>
-        <button
-          type="button"
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
-          className="ms-btn-ghost rounded-lg px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
+    <div className="border-t border-theme px-5 py-3">
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+        noun={noun}
+      />
     </div>
   );
 }

@@ -12,14 +12,14 @@ import {
   AlertCircle,
   Lock,
   Search,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { useDailyAttendance, useSaveAttendance, useTeacherTimetable } from '@/hooks/useAttendance';
 import type { TimetableSlot } from '@/hooks/useAttendance';
 import { todayEAT } from '@/lib/api/attendance';
 import type { AttendanceStatus, BulkAttendanceEntry } from '@makyschool/shared';
 import { useCurrentTerm } from '@/hooks/useCurrentTerm';
+import { TablePagination } from '@makyschool/ui/components/ui/TablePagination';
+import { useClientPagination } from '@/hooks/useClientPagination';
 
 type StatusConfig = {
   label: string;
@@ -58,7 +58,6 @@ const STATUS_CONFIG: { [K in AttendanceStatus]: StatusConfig } = {
 };
 
 const STATUS_KEYS = ['present', 'late', 'absent'] as AttendanceStatus[];
-const PAGE_SIZE = 50;
 const DRAFT_PREFIX = 'makyschool:attendance-draft:';
 
 type DraftState = {
@@ -120,7 +119,6 @@ export default function AttendancePage() {
   const [notes, setNotes] = useState<{ [id: string]: string }>({});
   const [selectedIds, setSelectedIds] = useState<{ [id: string]: boolean }>({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(0);
   const [justSaved, setJustSaved] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -155,7 +153,6 @@ export default function AttendancePage() {
   useEffect(() => {
     setSelectedIds({});
     setSearchQuery('');
-    setPage(0);
     setJustSaved(false);
     setDraftSaved(false);
     setSaveError(null);
@@ -194,9 +191,17 @@ export default function AttendancePage() {
     );
   }, [rows, searchQuery]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pagedRows = filteredRows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const {
+    paged: pagedRows,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total: filteredTotal,
+  } = useClientPagination({
+    items: filteredRows,
+    resetDeps: [activeSlotId, selectedDate, searchQuery],
+  });
 
   const tally = useMemo(() => {
     const counts: { [K in AttendanceStatus]: number } = { present: 0, late: 0, absent: 0 };
@@ -489,7 +494,7 @@ export default function AttendancePage() {
                   type="text"
                   placeholder="Search by name or learner ID…"
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   disabled={alreadySubmitted}
                   className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground disabled:opacity-50"
                 />
@@ -532,7 +537,7 @@ export default function AttendancePage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground font-medium">
-                            {safePage * PAGE_SIZE + idx + 1}
+                            {(page - 1) * pageSize + idx + 1}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
@@ -613,7 +618,7 @@ export default function AttendancePage() {
                       </span>
                       <div className="min-w-0">
                         <p className="font-semibold text-foreground truncate">
-                          {safePage * PAGE_SIZE + idx + 1}. {student.studentName}
+                          {(page - 1) * pageSize + idx + 1}. {student.studentName}
                         </p>
                         <p className="font-mono text-[11px] text-muted-foreground/80">{student.learnerId}</p>
                       </div>
@@ -658,31 +663,14 @@ export default function AttendancePage() {
                 ))}
               </div>
 
-              {filteredRows.length > PAGE_SIZE && (
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-xs text-muted-foreground">
-                    Page {safePage + 1} of {pageCount} · {filteredRows.length} students
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={safePage === 0}
-                      onClick={() => setPage((p) => Math.max(0, p - 1))}
-                      className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                    </button>
-                    <button
-                      type="button"
-                      disabled={safePage >= pageCount - 1}
-                      onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                      className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-                    >
-                      Next <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              <TablePagination
+                page={page}
+                pageSize={pageSize}
+                total={filteredTotal}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                noun="students"
+              />
 
               {saveError && (
                 <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/10 px-5 py-3 text-sm font-medium text-rose-700 dark:text-rose-400 shadow-sm">

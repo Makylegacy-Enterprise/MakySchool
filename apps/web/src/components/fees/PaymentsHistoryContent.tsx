@@ -15,8 +15,9 @@ import { useApiSWR } from "@/hooks/useApiSWR";
 import { useFeesPortal } from "@/hooks/useFeesBasePath";
 import { formatUGX } from "@/lib/formatCurrency";
 import { paymentMethodLabel, type FeePayment } from "@/lib/fees/types";
+import { DEFAULT_PAGE_SIZE } from "@makyschool/shared/constants";
 
-const PAGE_SIZE = 25;
+
 
 type PaymentsResponse = {
   payments: FeePayment[];
@@ -28,8 +29,9 @@ type PaymentsResponse = {
 export function PaymentsHistoryContent() {
   const isAdminPortal = useFeesPortal() === "admin";
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [voidPayment, setVoidPayment] = useState<FeePayment | null>(null);
-  const query = useMemo(() => `/schools/fees/payments?page=${page}&limit=${PAGE_SIZE}`, [page]);
+  const query = useMemo(() => `/schools/fees/payments?page=${page}&limit=${pageSize}`, [page, pageSize]);
   const { data, error, isLoading, mutate } = useApiSWR<PaymentsResponse>(query);
 
   const total = data?.total ?? 0;
@@ -75,15 +77,17 @@ export function PaymentsHistoryContent() {
 
       <DataListPanel
         footer={
-          total > PAGE_SIZE ? (
-            <TablePagination
-              summary={`Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} payments`}
-              onPrevious={() => setPage((p) => p - 1)}
-              onNext={() => setPage((p) => p + 1)}
-              previousDisabled={page <= 1}
-              nextDisabled={page * PAGE_SIZE >= total}
-            />
-          ) : null
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="payments"
+          />
         }
       >
         <QueryState
