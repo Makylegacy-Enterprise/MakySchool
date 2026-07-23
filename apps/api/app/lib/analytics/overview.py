@@ -89,16 +89,55 @@ async def build_overview(
             "reason": "Available once the marks module ships.",
             "items": [],
         },
-        "attendanceTrends": {
-            "available": False,
-            "reason": "Available once the attendance module ships.",
-            "items": [],
-        },
+        "attendanceTrends": await _build_attendance_trends(conn, school_id, term_id),
         "competencyAchievement": {
             "available": False,
             "reason": "Available once the competency module ships.",
             "items": [],
         },
+    }
+
+
+async def _build_attendance_trends(
+    conn: asyncpg.Connection,
+    school_id: uuid.UUID,
+    term_id: uuid.UUID | None,
+) -> dict[str, Any]:
+    if term_id is None:
+        return {
+            "available": True,
+            "averageAttendanceRate": 0.0,
+            "totalAbsent": 0,
+            "schoolDays": 0,
+            "items": [],
+        }
+
+    row = await conn.fetchrow(
+        """
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'present')::int AS present_count,
+          COUNT(*) FILTER (WHERE status = 'absent')::int AS absent_count,
+          COUNT(*) FILTER (WHERE status = 'late')::int AS late_count,
+          COUNT(DISTINCT date)::int AS school_days
+        FROM attendance
+        WHERE school_id = $1 AND term_id = $2
+        """,
+        school_id,
+        term_id,
+    )
+    present = int(row["present_count"]) if row else 0
+    absent = int(row["absent_count"]) if row else 0
+    late = int(row["late_count"]) if row else 0
+    school_days = int(row["school_days"]) if row else 0
+    marked = present + absent + late
+    rate = round(((present + late) / marked) * 100, 1) if marked > 0 else 0.0
+
+    return {
+        "available": True,
+        "averageAttendanceRate": rate,
+        "totalAbsent": absent,
+        "schoolDays": school_days,
+        "items": [],
     }
 
 

@@ -41,7 +41,7 @@ export function AuthInput({
       <span className="mb-2 block text-[0.8125rem] font-medium text-theme-muted">{label}</span>
       <div className="relative">
         {Icon ? (
-          <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-muted" />
+          <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-muted z-10" />
         ) : null}
         <input
           id={id}
@@ -55,18 +55,19 @@ export function AuthInput({
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           className={cn(
-            "ms-input auth-input-field py-3 transition",
-            Icon && "pl-10",
-            isPassword && "pr-11",
+            "ms-input auth-input-field py-3 transition w-full",
             error && "border-red-400 focus:border-red-400",
             disabled && "cursor-not-allowed opacity-55",
+            // Placed at the end to guarantee padding styles take layout precedence
+            Icon ? "pl-11" : "pl-3.5",
+            isPassword ? "pr-11" : "pr-3.5"
           )}
         />
         {isPassword ? (
           <button
             type="button"
             onClick={() => setShowPassword((current) => !current)}
-            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-theme-muted transition hover:bg-nav-hover hover:text-theme-primary"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-theme-muted transition hover:bg-nav-hover hover:text-theme-primary z-10"
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
           >
@@ -163,7 +164,7 @@ export function AuthSubmitButton({
     <button
       type="submit"
       disabled={loading || disabled}
-      className="ms-btn-auth active:scale-[0.99] disabled:active:scale-100"
+      className="ms-btn-auth active:scale-[0.99] disabled:active:scale-100 flex items-center justify-center gap-2"
     >
       {loading ? (
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent" />

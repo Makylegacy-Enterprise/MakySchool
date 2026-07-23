@@ -78,10 +78,23 @@ export function DashboardAnalyticsStrip() {
               title="Weak subjects"
               reason={overview.weakSubjects.reason}
             />
-            <StubCard
-              title="Attendance trends"
-              reason={overview.attendanceTrends.reason}
-            />
+            {overview.attendanceTrends.available ? (
+              <div className="ms-card w-56 shrink-0 p-5">
+                <p className="text-xs text-theme-muted">Attendance trends</p>
+                <p className="mt-3 text-2xl font-semibold tabular-nums text-theme-primary">
+                  {overview.attendanceTrends.averageAttendanceRate}%
+                </p>
+                <p className="mt-1 text-xs text-theme-muted">
+                  {overview.attendanceTrends.totalAbsent} absences ·{' '}
+                  {overview.attendanceTrends.schoolDays} school days
+                </p>
+              </div>
+            ) : (
+              <StubCard
+                title="Attendance trends"
+                reason={overview.attendanceTrends.reason}
+              />
+            )}
             <StubCard
               title="Competency achievement"
               reason={overview.competencyAchievement.reason}

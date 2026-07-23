@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CalendarDays, Users } from 'lucide-react';
@@ -10,16 +10,16 @@ import type { AttendanceStatus } from '@makyschool/shared';
 import { useTeacherClasses } from '@/hooks/useTeacherClasses';
 import { useCurrentTerm } from '@/hooks/useCurrentTerm';
 
-const DOT: Record<AttendanceStatus, string> = {
+const DOT: { [K in AttendanceStatus]: string } = {
   present: 'bg-emerald-500 dark:bg-emerald-400',
-  late:    'bg-amber-450 dark:bg-amber-400',
+  late:    'bg-amber-400 dark:bg-amber-400',
   absent:  'bg-rose-500 dark:bg-rose-400',
 };
 
 function currentMonth() {
   return new Date().toLocaleDateString('en-CA', {
     timeZone: 'Africa/Kampala',
-  }).slice(0, 7); // "YYYY-MM"
+  }).slice(0, 7);
 }
 
 export default function AttendanceHistoryPage() {
@@ -41,16 +41,33 @@ export default function AttendanceHistoryPage() {
   const rows   = data?.rows ?? [];
   const dayNums = days.map((d) => ({ full: d, day: new Date(d).getDate() }));
 
+  const columnTotals = useMemo(() => {
+    const totals: { [key: string]: { present: number; late: number; absent: number } } = {};
+    for (const day of days) {
+      totals[day] = { present: 0, late: 0, absent: 0 };
+    }
+    for (const row of rows) {
+      for (const day of days) {
+        const status = row.days[day] as AttendanceStatus | undefined;
+        if (status) totals[day][status]++;
+      }
+    }
+    return totals;
+  }, [days, rows]);
+
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      {/* Header */}
+    <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
       <div className="flex flex-col gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-3">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Attendance</h1>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <CalendarDays className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Attendance</h1>
+            <p className="text-xs text-muted-foreground">Monthly history for your assigned classes</p>
+          </div>
         </div>
 
-        {/* Tab Navigation */}
         <div className="flex gap-2">
           <Link
             href="/teacher/attendance"
@@ -90,7 +107,6 @@ export default function AttendanceHistoryPage() {
         </div>
       ) : (
         <>
-          {/* Controls */}
           <div className="flex flex-wrap gap-6 bg-muted/30 p-4 rounded-xl border border-border/60">
             <div className="flex flex-col gap-1.5 min-w-[200px]">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Class</label>
@@ -116,7 +132,6 @@ export default function AttendanceHistoryPage() {
             </div>
           </div>
 
-          {/* Legend */}
           <div className="flex flex-wrap gap-5 text-xs text-muted-foreground bg-muted/10 p-3 rounded-lg border border-border/40 w-fit">
             {(Object.entries(DOT) as [AttendanceStatus, string][]).map(([s, cls]) => (
               <span key={s} className="flex items-center gap-2 capitalize font-medium">
@@ -157,6 +172,7 @@ export default function AttendanceHistoryPage() {
                         <th
                           key={full}
                           className="min-w-[2.5rem] px-2 py-3.5 text-center font-semibold text-muted-foreground border-b border-border"
+                          title={full}
                         >
                           {day}
                         </th>
@@ -196,6 +212,24 @@ export default function AttendanceHistoryPage() {
                         </td>
                       </tr>
                     ))}
+                    <tr className="bg-muted/30 border-t-2 border-border">
+                      <td className="sticky left-0 z-10 bg-muted/95 dark:bg-zinc-900 border-r border-border/80 px-5 py-3 font-semibold text-foreground text-xs uppercase tracking-wider">
+                        Column totals
+                      </td>
+                      {dayNums.map(({ full }) => {
+                        const t = columnTotals[full];
+                        return (
+                          <td key={full} className="px-1 py-2 text-center align-top">
+                            <div className="flex flex-col items-center gap-0.5 text-[9px] font-medium leading-tight">
+                              <span className="text-emerald-600 dark:text-emerald-400">{t?.present ?? 0}P</span>
+                              <span className="text-amber-600 dark:text-amber-400">{t?.late ?? 0}L</span>
+                              <span className="text-rose-600 dark:text-rose-400">{t?.absent ?? 0}A</span>
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="px-5 py-3 text-center text-muted-foreground">—</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

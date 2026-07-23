@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, ArrowLeft } from "lucide-react"; 
+import Link from "next/link"; 
 import { AuthAlert, AuthInput, AuthSubmitButton } from "@/components/auth/AuthShell";
 import { changePasswordAction } from "@/lib/auth/change-password-action";
 import { persistSchoolSlug } from "@/lib/auth/session";
@@ -97,9 +98,21 @@ export function ChangePasswordForm() {
 
       {error ? <AuthAlert message={error} /> : null}
 
-      <AuthSubmitButton loading={loading} loadingLabel="Saving…">
-        Set password
-      </AuthSubmitButton>
+      <div className="flex flex-col gap-3">
+        <AuthSubmitButton loading={loading} loadingLabel="Saving…">
+          Set password
+        </AuthSubmitButton>
+
+        <Link 
+          href="/" 
+          // Added stopPropagation to prevent the click from firing the form's onSubmit event handler
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center gap-2 text-sm text-theme-muted hover:text-theme-primary transition-colors py-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to login
+        </Link>
+      </div>
     </form>
   );
 }

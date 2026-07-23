@@ -4,6 +4,7 @@ import type {
   BulkAttendanceResponse,
   AttendanceSummary,
   MonthlyAttendanceResponse,
+  AttendanceAdminOverview,
 } from '@makyschool/shared';
 import type { TimetableSlot } from '@/hooks/useAttendance';
 
@@ -49,8 +50,9 @@ export const attendanceApi = {
     date: string;
     entries: Array<{ studentId: string; status: string; notes?: string }>;
   }) {
+    const periodId = payload.timetableSlotId;
     const snakeCasedPayload = {
-      timetable_period_id: payload.timetableSlotId,
+      timetable_period_id: periodId,
       term_id: payload.termId,
       date: payload.date,
       entries: payload.entries.map((e) => ({
@@ -75,6 +77,24 @@ export const attendanceApi = {
   getMonthly(classId: string, termId: string, month: string) {
     return apiClient<MonthlyAttendanceResponse>(
       `/api/schools/attendance/monthly?class_id=${classId}&term_id=${termId}&month=${month}`,
+    ).then((response) => response.data);
+  },
+
+  getAdminOverview(
+    termId: string,
+    dateFrom: string,
+    dateTo: string,
+    classId?: string,
+  ) {
+    const params = new URLSearchParams({
+      term_id: termId,
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    if (classId) params.set('class_id', classId);
+
+    return apiClient<AttendanceAdminOverview>(
+      `/api/schools/attendance/admin/overview?${params.toString()}`,
     ).then((response) => response.data);
   },
 };

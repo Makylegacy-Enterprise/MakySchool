@@ -2,7 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '@/lib/api/attendance';
-import type { DailyAttendanceResponse } from '@makyschool/shared';
+import type {
+  DailyAttendanceResponse,
+  AttendanceAdminOverview,
+} from '@makyschool/shared';
 
 // Local-only shape: not part of the shared attendance domain model, just the
 // options returned by /schools/attendance/timetable for populating the
@@ -13,6 +16,10 @@ export interface TimetableSlot {
   className: string;
   subjectName: string;
   timeLabel: string;
+  periodNumber?: number;
+  startTime?: string;
+  endTime?: string;
+  studentCount?: number;
   alreadySubmitted: boolean;
 }
 
@@ -27,6 +34,8 @@ export const attendanceKeys = {
                ['attendance', 'monthly', classId, termId, month] as const,
   summary: (studentId: string, termId: string) =>
                ['attendance', 'summary', studentId, termId] as const,
+  adminOverview: (termId: string, dateFrom: string, dateTo: string, classId: string) =>
+               ['attendance', 'admin-overview', termId, dateFrom, dateTo, classId] as const,
 };
 
 /**
@@ -117,11 +126,28 @@ export function useAttendanceSummary(
   });
 }
 
+export function useAttendanceAdminOverview(
+  termId: string,
+  dateFrom: string,
+  dateTo: string,
+  classId = '',
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: attendanceKeys.adminOverview(termId, dateFrom, dateTo, classId),
+    queryFn: (): Promise<AttendanceAdminOverview> =>
+      attendanceApi.getAdminOverview(termId, dateFrom, dateTo, classId || undefined),
+    enabled: enabled && !!termId && !!dateFrom && !!dateTo,
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
 /**
  * ── Save Bulk Attendance Entry Mutation ─────────────────────────────────────
  * Note: the backend permanently locks a submission — a second attempt for
  * the same period+date returns 409 ALREADY_SUBMITTED. Callers should catch
- * that and treat it as "someone already submitted this," not retry.
+ * that and treat it as already submitted, not retry.
  */
 export function useSaveAttendance() {
   const qc = useQueryClient();
@@ -144,6 +170,9 @@ export function useSaveAttendance() {
       });
       qc.invalidateQueries({
         queryKey: ['attendance', 'monthly'],
+      });
+      qc.invalidateQueries({
+        queryKey: ['attendance', 'admin-overview'],
       });
     },
   });

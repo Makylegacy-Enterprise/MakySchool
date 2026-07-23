@@ -32,6 +32,8 @@ export interface BulkAttendancePayload {
   // just per class. This ties each submission to exactly one teacher-period
   // combination and is what the unique lock constraint is enforced against.
   timetableSlotId: string;
+  /** Same value as timetableSlotId; preferred name when constructing new payloads. */
+  timetablePeriodId?: string;
   termId: string;
   date: string; // YYYY-MM-DD
   entries: BulkAttendanceEntry[];
@@ -65,4 +67,58 @@ export interface MonthlyAttendanceResponse {
   month: string; // YYYY-MM
   schoolDays: string[]; // date+subject columns that had any attendance taken
   rows: MonthlyAttendanceRow[];
+}
+
+export interface AttendanceAdminKpis {
+  activeStudents: number;
+  classCount: number;
+  schoolDays: number;
+  present: number;
+  absent: number;
+  late: number;
+  registersSubmitted: number;
+  registersMissing: number;
+  averageAttendanceRate: number;
+}
+
+export interface AttendanceDailyTrendPoint {
+  date: string;
+  present: number;
+  absent: number;
+  late: number;
+  attendanceRate: number;
+}
+
+export interface AttendanceStatusBreakdown {
+  present: number;
+  absent: number;
+  late: number;
+}
+
+export interface AttendanceRegisterCompliance {
+  submitted: number;
+  missing: number;
+  expected: number;
+  complianceRate: number;
+}
+
+export interface AttendancePerClassRow {
+  classId: string;
+  className: string;
+  studentCount: number;
+  schoolDays: number;
+  present: number;
+  absent: number;
+  late: number;
+  attendanceRate: number;
+  registersSubmitted: number;
+  registersMissing: number;
+}
+
+export interface AttendanceAdminOverview {
+  kpis: AttendanceAdminKpis;
+  dailyTrend: AttendanceDailyTrendPoint[];
+  statusBreakdown: AttendanceStatusBreakdown;
+  registerCompliance: AttendanceRegisterCompliance;
+  perClass: AttendancePerClassRow[];
 }

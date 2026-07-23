@@ -93,6 +93,14 @@ export interface StubAnalyticsMetric {
   items: [];
 }
 
+export interface AttendanceTrendsMetric {
+  available: true;
+  averageAttendanceRate: number;
+  totalAbsent: number;
+  schoolDays: number;
+  items: [];
+}
+
 export interface AnalyticsOverview {
   termId: string | null;
   studentClassCounts: StudentClassCountsMetric;
@@ -100,7 +108,7 @@ export interface AnalyticsOverview {
   teacherMarksSubmission: TeacherMarksSubmissionMetric;
   bestStudents: StubAnalyticsMetric;
   weakSubjects: StubAnalyticsMetric;
-  attendanceTrends: StubAnalyticsMetric;
+  attendanceTrends: AttendanceTrendsMetric | StubAnalyticsMetric;
   competencyAchievement: StubAnalyticsMetric;
 }
 
