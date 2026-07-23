@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { StudentAttendancePanel } from '@/components/attendance/StudentAttendancePanel';
-import { SlideOver } from '@makyschool/ui/components/ui/SlideOver';
+import { Modal } from "@makyschool/ui/components/ui/Modal";
+import { StudentAttendancePanel } from "@/components/attendance/StudentAttendancePanel";
 
-export function TeacherStudentAttendanceDrawer({
+export function TeacherStudentAttendanceModal({
   open,
   onClose,
   studentId,
@@ -15,17 +15,18 @@ export function TeacherStudentAttendanceDrawer({
   studentName: string;
 }) {
   return (
-    <SlideOver
+    <Modal
       open={open && !!studentId}
       onClose={onClose}
-      title={studentName || 'Student attendance'}
+      size="xl"
+      title={studentName || "Student attendance"}
       description="Term attendance summary and recent absences"
     >
       {studentId ? (
-        <div className="p-4 sm:p-6 overflow-y-auto">
+        <div className="max-h-[min(70vh,36rem)] overflow-y-auto pr-1">
           <StudentAttendancePanel studentId={studentId} compact />
         </div>
       ) : null}
-    </SlideOver>
+    </Modal>
   );
 }

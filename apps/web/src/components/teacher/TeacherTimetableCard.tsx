@@ -221,7 +221,7 @@ function TimetableSummaryStrip({ periods, today }: { periods: TimetablePeriod[];
   );
 }
 
-export function TeacherTimetableCard() {
+export function TeacherTimetableCard({ compact = false }: { compact?: boolean }) {
   const { data, error, isLoading, mutate } = useSchoolSWR<TimetableGrid>(
     "/schools/timetable/teacher/me",
   );
@@ -230,20 +230,22 @@ export function TeacherTimetableCard() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-theme-primary">My timetable</h2>
-          <p className="mt-0.5 text-sm text-theme-muted">
-            {todayLabel}&apos;s schedule and your weekly teaching periods
-          </p>
+      {!compact ? (
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-theme-primary">My timetable</h2>
+            <p className="mt-0.5 text-sm text-theme-muted">
+              {todayLabel}&apos;s schedule and your weekly teaching periods
+            </p>
+          </div>
+          <Link
+            href="/teacher/classes"
+            className="text-sm font-medium text-theme-accent hover:underline"
+          >
+            View my classes
+          </Link>
         </div>
-        <Link
-          href="/teacher/classes"
-          className="text-sm font-medium text-theme-accent hover:underline"
-        >
-          View my classes
-        </Link>
-      </div>
+      ) : null}
 
       <QueryState
         isLoading={isLoading && !data}
@@ -252,13 +254,15 @@ export function TeacherTimetableCard() {
         onRetry={() => void mutate()}
         loading={
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Skeleton className="h-16 rounded-xl" />
-              <Skeleton className="h-16 rounded-xl" />
-              <Skeleton className="h-16 rounded-xl" />
-            </div>
+            {!compact ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+              </div>
+            ) : null}
             <Skeleton className="h-40 w-full rounded-xl" />
-            <Skeleton className="h-56 w-full rounded-xl" />
+            {!compact ? <Skeleton className="h-56 w-full rounded-xl" /> : null}
           </div>
         }
         isEmpty={(value) => value.periods.length === 0}
@@ -271,22 +275,26 @@ export function TeacherTimetableCard() {
       >
         {(grid) => (
           <div className="space-y-6">
-            <TimetableSummaryStrip periods={grid.periods} today={today} />
+            {!compact ? <TimetableSummaryStrip periods={grid.periods} today={today} /> : null}
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-theme-primary">Today — {todayLabel}</h3>
-                <span className="rounded-full bg-theme-accent-muted px-2 py-0.5 text-[11px] font-medium text-theme-accent">
-                  {grid.periods.filter((period) => period.day_of_week === today).length} periods
-                </span>
-              </div>
+              {!compact ? (
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-theme-primary">Today — {todayLabel}</h3>
+                  <span className="rounded-full bg-theme-accent-muted px-2 py-0.5 text-[11px] font-medium text-theme-accent">
+                    {grid.periods.filter((period) => period.day_of_week === today).length} periods
+                  </span>
+                </div>
+              ) : null}
               <TodaySchedule periods={grid.periods} today={today} />
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-theme-primary">Weekly overview</h3>
-              <WeekTimetableGrid periods={grid.periods} today={today} />
-            </div>
+            {!compact ? (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-theme-primary">Weekly overview</h3>
+                <WeekTimetableGrid periods={grid.periods} today={today} />
+              </div>
+            ) : null}
           </div>
         )}
       </QueryState>

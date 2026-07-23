@@ -16,7 +16,6 @@ from app.lib.classes import (
     is_level_allowed_for_school_type,
 )
 from app.lib.pg_json import parse_pg_json
-from app.lib.user_sql import USER_LEARNER_ROLE_SQL
 from app.middleware.subscription_guard import require_tenant_with_subscription
 from app.middleware.teacher_scope import assert_class_access, get_allowed_class_ids
 
@@ -91,10 +90,10 @@ async def list_classes(
            c.sort_order,
            COALESCE((
              SELECT COUNT(*)::int
-             FROM users u
-             WHERE u.school_id = c.school_id
-               AND {USER_LEARNER_ROLE_SQL}
-               AND u.school_class_id = c.id
+             FROM students st
+             WHERE st.school_id = c.school_id
+               AND st.status = 'active'
+               AND st.current_class_id = c.id
            ), 0) AS student_count,
            COALESCE((
              SELECT json_agg(json_build_object('id', s.id, 'name', s.name))
@@ -134,10 +133,10 @@ async def get_class(
            c.capacity,
            COALESCE((
              SELECT COUNT(*)::int
-             FROM users u
-             WHERE u.school_id = c.school_id
-               AND {USER_LEARNER_ROLE_SQL}
-               AND u.school_class_id = c.id
+             FROM students st
+             WHERE st.school_id = c.school_id
+               AND st.status = 'active'
+               AND st.current_class_id = c.id
            ), 0) AS student_count,
            COALESCE((
              SELECT json_agg(json_build_object('id', s.id, 'name', s.name))
@@ -220,17 +219,17 @@ async def get_class_students(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden"})
 
     rows = await conn.fetch(
-        f"""
+        """
         SELECT
-           u.id,
-           COALESCE(u.name, u.full_name) AS name,
-           u.student_number AS learner_id,
-           NULL::text AS gender
-         FROM users u
-         WHERE u.school_id = $1
-           AND {USER_LEARNER_ROLE_SQL}
-           AND u.school_class_id = $2
-         ORDER BY COALESCE(u.name, u.full_name) ASC
+           s.id,
+           s.full_name AS name,
+           s.learner_id,
+           s.gender
+         FROM students s
+         WHERE s.school_id = $1
+           AND s.status = 'active'
+           AND s.current_class_id = $2
+         ORDER BY s.full_name ASC
         """,
         school_id,
         class_id,
@@ -370,12 +369,12 @@ async def delete_class(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Class not found"})
 
     count_row = await conn.fetchrow(
-        f"""
+        """
         SELECT COUNT(*)::int AS count
-        FROM users u
-        WHERE u.school_id = $1
-          AND {USER_LEARNER_ROLE_SQL}
-          AND u.school_class_id = $2
+        FROM students s
+        WHERE s.school_id = $1
+          AND s.status = 'active'
+          AND s.current_class_id = $2
         """,
         school_id,
         class_id,

@@ -4,7 +4,6 @@ import {
   CalendarDays,
   CircleDollarSign,
   ClipboardList,
-  // 1. Imported the navigation indicator icon here
   ClipboardCheck,
   GraduationCap,
   Hash,
@@ -15,6 +14,7 @@ import {
   ListOrdered,
   Receipt,
   Settings2,
+  Shield,
   ShieldCheck,
   UserRound,
   UsersRound,
@@ -134,12 +134,18 @@ export const schoolAdminNavGroups: NavGroup[] = [
         exact: false,
         requiredAction: "manageTimetable",
       },
-      // 2. Added the Attendance Registry navigation link directly here
       {
         href: "/dashboard/attendance",
         label: "Attendance Registry",
         icon: ClipboardCheck,
         exact: true,
+        requiredAction: "viewAllClasses",
+      },
+      {
+        href: "/dashboard/discipline",
+        label: "Discipline",
+        icon: Shield,
+        exact: false,
         requiredAction: "viewAllClasses",
       },
     ],

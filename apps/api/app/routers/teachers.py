@@ -18,7 +18,7 @@ from app.lib.teacher_assignments import (
     scaffold_term_submissions,
     sync_teacher_assignments,
 )
-from app.lib.user_sql import USER_DISPLAY_NAME_SQL, USER_LEARNER_ROLE_SQL
+from app.lib.user_sql import USER_DISPLAY_NAME_SQL
 from app.middleware.subscription_guard import require_tenant_with_subscription
 from app.services.central_auth import CentralAuthError, central_auth_enabled, sync_user_password
 
@@ -94,10 +94,6 @@ def _serialize_teacher_list_row(row: asyncpg.Record) -> dict[str, Any]:
             )
     data["assignments"] = assignments
     return data
-
-
-def _learner_role_sql(alias: str) -> str:
-    return USER_LEARNER_ROLE_SQL.replace("u.", f"{alias}.")
 
 
 async def _validate_teacher_fields(
@@ -291,20 +287,39 @@ async def _fetch_teacher_detail(
         for row in submission_rows
     ]
 
-    learner_sql = _learner_role_sql("learners")
     total_students = await conn.fetchval(
-        f"""
-        SELECT COUNT(DISTINCT learners.id)::int
+        """
+        SELECT COUNT(DISTINCT s.id)::int
         FROM teacher_class_assignments tca
-        LEFT JOIN users learners
-          ON learners.school_class_id = tca.class_id
-         AND learners.school_id = tca.school_id
-         AND {learner_sql}
+        JOIN students s
+          ON s.current_class_id = tca.class_id
+         AND s.school_id = tca.school_id
+         AND s.status = 'active'
         WHERE tca.school_id = $1 AND tca.teacher_id = $2
         """,
         school_id,
         teacher_id,
     )
+
+    count_rows = await conn.fetch(
+        """
+        SELECT
+          tca.class_id,
+          COUNT(DISTINCT s.id)::int AS student_count
+        FROM teacher_class_assignments tca
+        LEFT JOIN students s
+          ON s.current_class_id = tca.class_id
+         AND s.school_id = tca.school_id
+         AND s.status = 'active'
+        WHERE tca.school_id = $1 AND tca.teacher_id = $2
+        GROUP BY tca.class_id
+        """,
+        school_id,
+        teacher_id,
+    )
+    class_student_counts = {
+        str(row["class_id"]): int(row["student_count"] or 0) for row in count_rows
+    }
 
     return {
         "id": str(teacher["id"]),
@@ -322,6 +337,7 @@ async def _fetch_teacher_detail(
         "assignments": assignments,
         "submission_status": submission_status,
         "total_students": int(total_students or 0),
+        "class_student_counts": class_student_counts,
     }
 
 
@@ -392,7 +408,6 @@ async def list_teachers(
         param_index += 1
 
     where_clause = " AND ".join(conditions)
-    learner_sql = _learner_role_sql("learners")
 
     total = await conn.fetchval(
         f"""
@@ -431,10 +446,10 @@ async def list_teachers(
           COALESCE((
             SELECT COUNT(DISTINCT learners.id)::int
             FROM teacher_class_assignments tca2
-            LEFT JOIN users learners
-              ON learners.school_class_id = tca2.class_id
+            LEFT JOIN students learners
+              ON learners.current_class_id = tca2.class_id
              AND learners.school_id = tca2.school_id
-             AND {learner_sql}
+             AND learners.status = 'active'
             WHERE tca2.teacher_id = u.id AND tca2.school_id = u.school_id
           ), 0) AS total_students
         FROM users u

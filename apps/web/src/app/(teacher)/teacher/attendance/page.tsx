@@ -112,6 +112,7 @@ export default function AttendancePage() {
 
   const urlDate = searchParams.get('date');
   const urlSlotId = searchParams.get('slotId');
+  const urlClassId = searchParams.get('classId');
 
   const [selectedDate, setSelectedDate] = useState(urlDate || todayEAT());
   const [selectedSlotId, setSelectedSlotId] = useState(urlSlotId || '');
@@ -135,6 +136,12 @@ export default function AttendancePage() {
     if (urlDate) setSelectedDate(urlDate);
     if (urlSlotId) setSelectedSlotId(urlSlotId);
   }, [urlDate, urlSlotId]);
+
+  useEffect(() => {
+    if (urlSlotId || selectedSlotId || !urlClassId || slots.length === 0) return;
+    const match = slots.find((s) => s.classId === urlClassId);
+    if (match) setSelectedSlotId(match.timetableSlotId);
+  }, [urlClassId, urlSlotId, selectedSlotId, slots]);
 
   const { data, isPending: isPendingAttendance, isError } = useDailyAttendance(
     activeSlotId,

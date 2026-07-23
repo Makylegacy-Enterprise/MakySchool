@@ -36,6 +36,7 @@ export type TeacherDetail = TeacherListItem & {
     status: string;
     submitted_at: string | null;
   }>;
+  class_student_counts?: Record<string, number>;
 };
 
 export type TeachersListResponse = {

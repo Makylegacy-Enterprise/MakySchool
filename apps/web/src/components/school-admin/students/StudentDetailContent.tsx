@@ -9,6 +9,7 @@ import { ReinstateStudentDialog } from "@/components/school-admin/students/Reins
 import { StudentTableSkeleton } from "@/components/school-admin/students/StudentRowSkeleton";
 import { StudentFeesTab } from "@/components/fees/StudentFeesTab";
 import { StudentAttendancePanel } from "@/components/attendance/StudentAttendancePanel";
+import { StudentDisciplinePanel } from "@/components/discipline/StudentDisciplinePanel";
 import { TransferClassDialog } from "@/components/school-admin/students/TransferClassDialog";
 import { WithdrawStudentDialog } from "@/components/school-admin/students/WithdrawStudentDialog";
 import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
@@ -23,7 +24,7 @@ import {
   studentInitials,
 } from "@/lib/validation/students";
 
-type Tab = "profile" | "history" | "results" | "fees" | "attendance";
+type Tab = "profile" | "history" | "results" | "fees" | "attendance" | "discipline";
 
 function formatHistoryDate(value: string | null): string {
   if (!value) return "—";
@@ -145,6 +146,7 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
                   [
                     ["profile", "Profile"],
                     ["attendance", "Attendance"],
+                    ["discipline", "Discipline"],
                     ["history", "Class History"],
                     ["results", "Results"],
                     ["fees", "Fees"],
@@ -271,6 +273,14 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
               ) : null}
 
               {tab === "attendance" ? <StudentAttendancePanel studentId={student.id} /> : null}
+
+              {tab === "discipline" ? (
+                <StudentDisciplinePanel
+                  studentId={student.id}
+                  studentName={student.full_name}
+                  classId={student.current_class_id}
+                />
+              ) : null}
 
               {tab === "fees" ? <StudentFeesTab studentId={student.id} /> : null}
             </>

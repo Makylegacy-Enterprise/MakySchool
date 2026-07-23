@@ -10,10 +10,12 @@ export function TeacherClassCard({
   classId,
   assignments,
   submissionStatus,
+  studentCount,
 }: {
   classId: string;
   assignments: TeacherDetail["assignments"];
   submissionStatus: TeacherDetail["submission_status"];
+  studentCount?: number;
 }) {
   const className = assignments[0]?.class_name ?? "Class";
   const subjects = assignments.map((item) => item.subject_name).filter(Boolean);
@@ -44,18 +46,26 @@ export function TeacherClassCard({
 
       <p className="mt-4 flex items-center gap-1.5 text-sm text-theme-muted">
         <Users className="h-4 w-4 shrink-0" />
-        Open class to view students
+        {typeof studentCount === "number"
+          ? `${studentCount} student${studentCount === 1 ? "" : "s"}`
+          : "Open class to view students"}
       </p>
 
-      <p className="mt-2 text-xs text-theme-faint">Marks submission for this term</p>
-
-      <Link
-        href={`/teacher/classes/${classId}`}
-        className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-medium text-theme-accent hover:underline"
-      >
-        View class
-        <ArrowRight className="h-4 w-4" />
-      </Link>
+      <div className="mt-auto flex flex-wrap items-center gap-3 pt-5">
+        <Link
+          href={`/teacher/classes/${classId}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-theme-accent hover:underline"
+        >
+          View class
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link
+          href={`/teacher/attendance?classId=${classId}`}
+          className="text-sm font-medium text-theme-muted hover:text-theme-accent"
+        >
+          Attendance
+        </Link>
+      </div>
     </div>
   );
 }
@@ -79,6 +89,7 @@ export function TeacherClassGrid({
           classId={classId}
           assignments={assignments}
           submissionStatus={teacher.submission_status}
+          studentCount={teacher.class_student_counts?.[classId]}
         />
       ))}
     </div>

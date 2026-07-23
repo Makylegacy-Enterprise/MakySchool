@@ -28,6 +28,7 @@ from app.routers import (
     auth,
     billing,
     classes,
+    discipline,
     fees,
     health,
     school_settings,
@@ -188,6 +189,7 @@ def create_app() -> FastAPI:
     mount_v1_and_legacy(app, billing.router, "/api/schools/billing")
     mount_v1_and_legacy(app, timetable.router, "/api/schools/timetable")
     mount_v1_and_legacy(app, attendance.router, "/api/schools/attendance")
+    mount_v1_and_legacy(app, discipline.router, "/api/schools/discipline")
 
     mount_v1_and_legacy(app, analytics.router, "/api/schools/analytics")
 

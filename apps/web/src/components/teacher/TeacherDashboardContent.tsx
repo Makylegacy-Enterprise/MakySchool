@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarDays, Shield } from "lucide-react";
 import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
 import { EmptyState } from "@makyschool/ui/components/ui/EmptyState";
 import { QueryState } from "@makyschool/ui/components/ui/QueryState";
@@ -62,9 +62,53 @@ export function TeacherDashboardContent() {
 
               <TeacherStatsRow teacher={teacher} />
 
-              <div className="rounded-2xl border border-theme bg-theme-page p-5 sm:p-6">
-                <TeacherTimetableCard />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link
+                  href="/teacher/attendance"
+                  className="flex items-center gap-3 rounded-xl border border-theme bg-theme-surface p-4 transition hover:border-accent-soft"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-theme-accent-muted text-theme-accent">
+                    <CalendarDays className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-theme-primary">Take attendance</p>
+                    <p className="text-xs text-theme-muted">Mark today&apos;s lessons</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-theme-muted" />
+                </Link>
+                <Link
+                  href="/teacher/discipline"
+                  className="flex items-center gap-3 rounded-xl border border-theme bg-theme-surface p-4 transition hover:border-accent-soft"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-theme-icon text-theme-muted">
+                    <Shield className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-theme-primary">Discipline</p>
+                    <p className="text-xs text-theme-muted">Review incidents you logged</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-theme-muted" />
+                </Link>
               </div>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-theme-primary">Today&apos;s schedule</h2>
+                    <p className="text-xs text-theme-muted">Your lessons for today</p>
+                  </div>
+                  <Link
+                    href="/teacher/timetable"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-theme-accent hover:underline"
+                  >
+                    Full timetable
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+                <div className="rounded-2xl border border-theme bg-theme-page p-4 sm:p-5">
+                  <TeacherTimetableCard compact />
+                </div>
+              </section>
 
               {hasClasses ? (
                 <section className="space-y-4">

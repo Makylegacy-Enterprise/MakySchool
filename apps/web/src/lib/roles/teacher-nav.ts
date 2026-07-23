@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, LayoutDashboard, User } from "lucide-react";
+import { BookOpen, CalendarDays, Clock3, LayoutDashboard, Shield, User } from "lucide-react";
 import { USER_ROLES } from "@makyschool/shared/constants";
 import type { PortalNavGroup, PortalNavItem } from "./portal-nav";
 
@@ -35,6 +35,14 @@ export const teacherNavGroups: PortalNavGroup[] = [
         exact: false,
         roles: teacherRole,
       },
+      {
+        id: "teacher-timetable",
+        href: "/teacher/timetable",
+        label: "Timetable",
+        icon: Clock3,
+        exact: false,
+        roles: teacherRole,
+      },
     ],
   },
   {
@@ -47,6 +55,21 @@ export const teacherNavGroups: PortalNavGroup[] = [
         href: "/teacher/attendance",
         label: "Attendance",
         icon: CalendarDays,
+        exact: false,
+        roles: teacherRole,
+      },
+    ],
+  },
+  {
+    id: "discipline",
+    label: "Discipline",
+    icon: Shield,
+    items: [
+      {
+        id: "teacher-discipline",
+        href: "/teacher/discipline",
+        label: "My incidents",
+        icon: Shield,
         exact: false,
         roles: teacherRole,
       },
