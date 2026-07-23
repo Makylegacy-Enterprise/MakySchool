@@ -22,49 +22,37 @@ type KpiItem = {
 
 export function AttendanceAdminKpis({ kpis }: { kpis: AttendanceAdminKpisData }) {
   const items: KpiItem[] = [
-    {
-      label: 'Active students',
-      value: kpis.activeStudents,
-      icon: Users,
-    },
-    {
-      label: 'Classes',
-      value: kpis.classCount,
-      icon: School,
-    },
-    {
-      label: 'School days',
-      value: kpis.schoolDays,
-      icon: CalendarDays,
-    },
+    { label: 'Active students', value: kpis.activeStudents, icon: Users },
+    { label: 'Classes', value: kpis.classCount, icon: School },
+    { label: 'School days', value: kpis.schoolDays, icon: CalendarDays },
     {
       label: 'Avg attendance',
       value: `${kpis.averageAttendanceRate}%`,
       icon: Percent,
       valueClassName:
         kpis.averageAttendanceRate >= 90
-          ? 'text-emerald-600 dark:text-emerald-400'
+          ? 'text-theme-success'
           : kpis.averageAttendanceRate >= 75
-            ? 'text-amber-600 dark:text-amber-400'
-            : 'text-rose-600 dark:text-rose-400',
+            ? 'text-theme-warning'
+            : 'text-theme-danger',
     },
     {
       label: 'Present marks',
       value: kpis.present,
       icon: CheckCircle2,
-      valueClassName: 'text-emerald-600 dark:text-emerald-400',
+      valueClassName: 'text-theme-success',
     },
     {
       label: 'Late marks',
       value: kpis.late,
       icon: Clock,
-      valueClassName: 'text-amber-600 dark:text-amber-400',
+      valueClassName: 'text-theme-warning',
     },
     {
       label: 'Absent marks',
       value: kpis.absent,
       icon: XCircle,
-      valueClassName: 'text-rose-600 dark:text-rose-400',
+      valueClassName: 'text-theme-danger',
     },
     {
       label: 'Registers submitted',
@@ -75,10 +63,7 @@ export function AttendanceAdminKpis({ kpis }: { kpis: AttendanceAdminKpisData })
       label: 'Registers missing',
       value: kpis.registersMissing,
       icon: AlertTriangle,
-      valueClassName:
-        kpis.registersMissing > 0
-          ? 'text-amber-600 dark:text-amber-400'
-          : undefined,
+      valueClassName: kpis.registersMissing > 0 ? 'text-theme-warning' : undefined,
     },
   ];
 
@@ -87,16 +72,16 @@ export function AttendanceAdminKpis({ kpis }: { kpis: AttendanceAdminKpisData })
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-xl border border-border bg-background p-4 shadow-sm"
+          className="rounded-xl border border-theme bg-theme-surface p-4 shadow-sm"
         >
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-theme-muted">
             <item.icon className="h-3.5 w-3.5 shrink-0" />
             {item.label}
           </div>
           <div
             className={[
               'mt-2 text-2xl font-bold tabular-nums',
-              item.valueClassName ?? 'text-foreground',
+              item.valueClassName ?? 'text-theme-primary',
             ].join(' ')}
           >
             {item.value}
@@ -111,9 +96,9 @@ export function AttendanceAdminKpisSkeleton() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-border bg-background p-4 shadow-sm">
-          <div className="h-3 w-20 animate-pulse rounded bg-muted/60" />
-          <div className="mt-3 h-7 w-14 animate-pulse rounded bg-muted/80" />
+        <div key={i} className="rounded-xl border border-theme bg-theme-surface p-4">
+          <div className="h-3 w-20 animate-pulse rounded bg-theme-raised" />
+          <div className="mt-3 h-7 w-14 animate-pulse rounded bg-theme-raised" />
         </div>
       ))}
     </div>

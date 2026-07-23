@@ -160,12 +160,12 @@ export default function AttendanceHistoryPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-theme bg-theme-surface">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/40 border-b border-border">
+                <table className="ms-table w-full text-xs">
+                  <thead className="bg-table-header">
                     <tr>
-                      <th className="sticky left-0 z-20 bg-muted/95 dark:bg-zinc-900 border-r border-border/80 px-5 py-3.5 text-left font-semibold text-muted-foreground shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                      <th className="sticky left-0 z-20 bg-table-header border-r border-theme px-5 py-3.5 text-left font-semibold text-theme-muted">
                         Student
                       </th>
                       {dayNums.map(({ full, day }) => (

@@ -8,6 +8,7 @@ import { EditStudentPanel } from "@/components/school-admin/students/EditStudent
 import { ReinstateStudentDialog } from "@/components/school-admin/students/ReinstateStudentDialog";
 import { StudentTableSkeleton } from "@/components/school-admin/students/StudentRowSkeleton";
 import { StudentFeesTab } from "@/components/fees/StudentFeesTab";
+import { StudentAttendancePanel } from "@/components/attendance/StudentAttendancePanel";
 import { TransferClassDialog } from "@/components/school-admin/students/TransferClassDialog";
 import { WithdrawStudentDialog } from "@/components/school-admin/students/WithdrawStudentDialog";
 import { DashboardPage } from "@makyschool/ui/components/layout/DashboardPage";
@@ -22,7 +23,7 @@ import {
   studentInitials,
 } from "@/lib/validation/students";
 
-type Tab = "profile" | "history" | "results" | "fees";
+type Tab = "profile" | "history" | "results" | "fees" | "attendance";
 
 function formatHistoryDate(value: string | null): string {
   if (!value) return "—";
@@ -139,10 +140,11 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
                 </CanDo>
               </div>
 
-              <div className="mb-6 flex gap-2 border-b border-theme pb-3">
+              <div className="mb-6 flex gap-2 border-b border-theme pb-3 overflow-x-auto">
                 {(
                   [
                     ["profile", "Profile"],
+                    ["attendance", "Attendance"],
                     ["history", "Class History"],
                     ["results", "Results"],
                     ["fees", "Fees"],
@@ -152,7 +154,7 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
                     key={key}
                     type="button"
                     onClick={() => setTab(key)}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                    className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
                       tab === key ? "bg-theme-accent text-on-accent" : "text-theme-muted hover:bg-nav-hover"
                     }`}
                   >
@@ -267,6 +269,8 @@ export function StudentDetailContent({ studentId }: { studentId: string }) {
                   </p>
                 </div>
               ) : null}
+
+              {tab === "attendance" ? <StudentAttendancePanel studentId={student.id} /> : null}
 
               {tab === "fees" ? <StudentFeesTab studentId={student.id} /> : null}
             </>

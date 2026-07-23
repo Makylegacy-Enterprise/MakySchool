@@ -5,6 +5,8 @@ import { attendanceApi } from '@/lib/api/attendance';
 import type {
   DailyAttendanceResponse,
   AttendanceAdminOverview,
+  StudentAttendanceDossier,
+  NotifyParentPayload,
 } from '@makyschool/shared';
 
 // Local-only shape: not part of the shared attendance domain model, just the
@@ -36,6 +38,8 @@ export const attendanceKeys = {
                ['attendance', 'summary', studentId, termId] as const,
   adminOverview: (termId: string, dateFrom: string, dateTo: string, classId: string) =>
                ['attendance', 'admin-overview', termId, dateFrom, dateTo, classId] as const,
+  studentDossier: (studentId: string, termId: string, dateFrom: string, dateTo: string) =>
+               ['attendance', 'student-dossier', studentId, termId, dateFrom, dateTo] as const,
 };
 
 /**
@@ -140,6 +144,41 @@ export function useAttendanceAdminOverview(
     enabled: enabled && !!termId && !!dateFrom && !!dateTo,
     staleTime: 60_000,
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useStudentAttendanceDossier(
+  studentId: string,
+  termId: string,
+  dateFrom = '',
+  dateTo = '',
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: attendanceKeys.studentDossier(studentId, termId, dateFrom, dateTo),
+    queryFn: (): Promise<StudentAttendanceDossier> =>
+      attendanceApi.getStudentDossier(
+        studentId,
+        termId,
+        dateFrom || undefined,
+        dateTo || undefined,
+      ),
+    enabled: enabled && !!studentId && !!termId,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useNotifyParent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { studentId: string; payload: NotifyParentPayload }) =>
+      attendanceApi.notifyParent(args.studentId, args.payload),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({
+        queryKey: ['attendance', 'student-dossier', variables.studentId],
+      });
+    },
   });
 }
 

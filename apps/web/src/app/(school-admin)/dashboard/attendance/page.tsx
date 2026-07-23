@@ -184,14 +184,14 @@ export default function SchoolAdminAttendancePage() {
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
       <div className="flex flex-col gap-2 border-b border-border pb-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10">
-            <ShieldCheck className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-theme-accent-muted">
+            <ShieldCheck className="h-5 w-5 text-theme-accent" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-theme-primary">
               School Attendance Registry
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-theme-muted">
               Review daily attendance and school-wide trends across every class stream.
             </p>
           </div>
@@ -204,8 +204,8 @@ export default function SchoolAdminAttendancePage() {
             className={[
               'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200',
               activeTab === 'daily'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                ? 'bg-theme-accent text-on-accent shadow-sm'
+                : 'text-theme-muted hover:bg-nav-hover hover:text-theme-primary',
             ].join(' ')}
           >
             <ClipboardList className="h-4 w-4" />
@@ -217,8 +217,8 @@ export default function SchoolAdminAttendancePage() {
             className={[
               'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200',
               activeTab === 'analytics'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                ? 'bg-theme-accent text-on-accent shadow-sm'
+                : 'text-theme-muted hover:bg-nav-hover hover:text-theme-primary',
             ].join(' ')}
           >
             <BarChart3 className="h-4 w-4" />
@@ -229,9 +229,9 @@ export default function SchoolAdminAttendancePage() {
 
       {activeTab === 'analytics' ? (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row flex-wrap gap-4 bg-muted/30 p-4 rounded-xl border border-border/60 sm:items-end">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 bg-theme-raised/40 p-4 rounded-xl border border-theme sm:items-end">
             <div className="flex flex-col gap-1.5 sm:min-w-[160px]">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-theme-muted">
                 From
               </label>
               <input
@@ -239,11 +239,11 @@ export default function SchoolAdminAttendancePage() {
                 max={dateTo || todayEAT()}
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="rounded-lg border border-border bg-background px-3.5 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-foreground cursor-pointer"
+                className="ms-input"
               />
             </div>
             <div className="flex flex-col gap-1.5 sm:min-w-[160px]">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-theme-muted">
                 To
               </label>
               <input
@@ -252,15 +252,15 @@ export default function SchoolAdminAttendancePage() {
                 min={dateFrom}
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="rounded-lg border border-border bg-background px-3.5 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-foreground cursor-pointer"
+                className="ms-input"
               />
             </div>
             <div className="flex flex-col gap-1.5 sm:min-w-[220px]">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-theme-muted">
                 Class filter
               </label>
               <select
-                className="w-full rounded-lg border border-border bg-background px-3.5 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-foreground cursor-pointer"
+                className="ms-input w-full"
                 value={analyticsClassId}
                 onChange={(e) => setAnalyticsClassId(e.target.value)}
               >

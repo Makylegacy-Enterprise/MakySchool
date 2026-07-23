@@ -45,11 +45,117 @@ export interface BulkAttendanceResponse {
   timetableSlotId: string;
 }
 
+export type AttendanceRiskLevel = 'ok' | 'watch' | 'at_risk' | 'critical';
+
+export type AttendanceDayStatus = 'present' | 'late' | 'absent' | 'partial' | 'none';
+
 export interface AttendanceSummary {
   studentId: string;
   termId: string;
   daysAttended: number;
   totalSchoolDays: number;
+  daysAbsent?: number;
+  attendanceRate?: number;
+  riskLevel?: AttendanceRiskLevel;
+}
+
+export interface StudentAttendanceKpis {
+  attendanceRate: number;
+  schoolDays: number;
+  daysPresent: number;
+  daysLate: number;
+  daysAbsent: number;
+  daysAttended: number;
+  periodsPresent: number;
+  periodsLate: number;
+  periodsAbsent: number;
+  consecutiveAbsentDays: number;
+  riskLevel: AttendanceRiskLevel;
+}
+
+export interface StudentAttendanceWeeklyPoint {
+  weekStart: string;
+  present: number;
+  late: number;
+  absent: number;
+  rate: number;
+}
+
+export interface StudentAttendanceBySubject {
+  subjectName: string;
+  present: number;
+  late: number;
+  absent: number;
+  rate: number;
+}
+
+export interface StudentAttendanceAbsence {
+  date: string;
+  subjectName: string;
+  periodLabel: string;
+  notes: string | null;
+  recordedBy: string | null;
+}
+
+export interface StudentAttendanceCalendarDay {
+  date: string;
+  dayStatus: AttendanceDayStatus;
+  present: number;
+  late: number;
+  absent: number;
+}
+
+export interface StudentAttendanceGuardian {
+  id: string | null;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  canNotify: boolean;
+}
+
+export interface StudentAttendanceNotification {
+  id: string;
+  triggerType: string;
+  attendanceDate: string;
+  status: string;
+  messageBody: string;
+  createdAt: string;
+}
+
+export interface StudentAttendanceDossier {
+  studentId: string;
+  studentName: string;
+  learnerId: string;
+  className: string | null;
+  termId: string;
+  termName: string;
+  dateFrom: string;
+  dateTo: string;
+  kpis: StudentAttendanceKpis;
+  weeklyTrend: StudentAttendanceWeeklyPoint[];
+  bySubject: StudentAttendanceBySubject[];
+  recentAbsences: StudentAttendanceAbsence[];
+  calendar: StudentAttendanceCalendarDay[];
+  guardian: StudentAttendanceGuardian;
+  recentNotifications: StudentAttendanceNotification[];
+}
+
+export interface NotifyParentPayload {
+  type: 'period_absent' | 'day_absent' | 'manual';
+  date: string;
+  timetablePeriodId?: string;
+  message?: string;
+}
+
+export interface NotifyParentResponse {
+  id: string;
+  status: string;
+  queued: boolean;
+  sent: boolean;
+  message: string;
+  preview: string;
+  guardianPhone: string;
+  guardianName: string;
 }
 
 export interface MonthlyAttendanceRow {

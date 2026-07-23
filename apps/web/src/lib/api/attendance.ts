@@ -5,45 +5,31 @@ import type {
   AttendanceSummary,
   MonthlyAttendanceResponse,
   AttendanceAdminOverview,
+  StudentAttendanceDossier,
+  NotifyParentPayload,
+  NotifyParentResponse,
 } from '@makyschool/shared';
 import type { TimetableSlot } from '@/hooks/useAttendance';
 
 export const attendanceApi = {
-  /**
-   * Fetch teacher's scheduled workload for a specific calendar date
-   */
   getTimetable(date: string) {
     return apiClient<TimetableSlot[]>(
       `/api/schools/attendance/timetable?date=${date}`
     ).then((response) => response.data);
   },
 
-  /**
-   * Fetch daily register roster driven by a teacher's active timetable period.
-   * Use this for the teacher-facing "take attendance" flow.
-   */
   getDaily(timetableSlotId: string, termId: string, date: string) {
     return apiClient<DailyAttendanceResponse>(
       `/api/schools/attendance?timetable_slot_id=${timetableSlotId}&term_id=${termId}&date=${date}`,
     ).then((response) => response.data);
   },
 
-  /**
-   * Fetch daily register roster for a whole class, independent of any
-   * specific teacher period. Use this for admin/head_teacher review views —
-   * NEVER pass a timetable/period id here, the backend rejects it.
-   */
   getDailyByClass(classId: string, termId: string, date: string) {
     return apiClient<DailyAttendanceResponse>(
       `/api/schools/attendance?class_id=${classId}&term_id=${termId}&date=${date}`,
     ).then((response) => response.data);
   },
 
-  /**
-   * Push full room changes up to the database log.
-   * Wire format matches BulkAttendancePayload from @makyschool/shared —
-   * timetableSlotId is required, since attendance is locked per period.
-   */
   saveBulk(payload: {
     timetableSlotId: string;
     termId: string;
@@ -95,6 +81,36 @@ export const attendanceApi = {
 
     return apiClient<AttendanceAdminOverview>(
       `/api/schools/attendance/admin/overview?${params.toString()}`,
+    ).then((response) => response.data);
+  },
+
+  getStudentDossier(
+    studentId: string,
+    termId: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) {
+    const params = new URLSearchParams({ term_id: termId });
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+
+    return apiClient<StudentAttendanceDossier>(
+      `/api/schools/attendance/students/${studentId}?${params.toString()}`,
+    ).then((response) => response.data);
+  },
+
+  notifyParent(studentId: string, payload: NotifyParentPayload) {
+    return apiClient<NotifyParentResponse>(
+      `/api/schools/attendance/students/${studentId}/notify`,
+      {
+        method: 'POST',
+        body: {
+          type: payload.type,
+          date: payload.date,
+          timetable_period_id: payload.timetablePeriodId ?? null,
+          message: payload.message ?? null,
+        },
+      },
     ).then((response) => response.data);
   },
 };

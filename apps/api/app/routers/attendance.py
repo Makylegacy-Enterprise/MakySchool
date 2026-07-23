@@ -23,6 +23,7 @@ TenantCtx = Annotated[
 
 ALLOWED_ROLES = {"teacher", "admin", "head_teacher"}
 ADMIN_ROLES = {"admin", "head_teacher"}
+NOTIFY_TYPES = frozenset({"period_absent", "day_absent", "manual"})
 
 
 # ── Pydantic Models ────────────────────────────────────────────────────────────
@@ -61,6 +62,28 @@ class BulkAttendancePayload(BaseModel):
             raise ValueError("entries must not be empty")
         if len(v) > 1000:
             raise ValueError("Too many entries (max 1000)")
+        return v
+
+
+class NotifyParentPayload(BaseModel):
+    type: str  # period_absent | day_absent | manual
+    date: str  # YYYY-MM-DD
+    timetable_period_id: uuid.UUID | None = None
+    message: str | None = None
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        if v not in NOTIFY_TYPES:
+            raise ValueError("type must be period_absent, day_absent, or manual")
+        return v
+
+    @field_validator("date")
+    @classmethod
+    def not_future(cls, v: str) -> str:
+        today = datetime.now(tz=EAT).date().isoformat()
+        if v > today:
+            raise ValueError("Cannot notify for a future date")
         return v
 
 
@@ -121,6 +144,91 @@ async def _assert_teacher_owns_period(
 
 def _class_display_name(level: str, stream: str | None) -> str:
     return f"{level} {stream}".strip() if stream else level
+
+
+def _actor_user_id(actor: dict[str, Any]) -> uuid.UUID:
+    raw = actor.get("user_db_id") or actor["sub"]
+    return uuid.UUID(str(raw))
+
+
+def _risk_level(rate: float, consecutive_absent: int) -> str:
+    if consecutive_absent >= 3 or rate < 70:
+        return "critical"
+    if rate < 80:
+        return "at_risk"
+    if rate < 90:
+        return "watch"
+    return "ok"
+
+
+async def _assert_can_view_student(
+    conn: asyncpg.Connection,
+    actor: dict[str, Any],
+    student_id: uuid.UUID,
+    school_id: uuid.UUID,
+) -> dict[str, Any]:
+    """Return student row; teachers may only access students in their classes."""
+    student = await conn.fetchrow(
+        """
+        SELECT
+          s.id,
+          s.full_name,
+          s.learner_id,
+          s.current_class_id,
+          s.status,
+          sc.level,
+          sc.stream
+        FROM students s
+        LEFT JOIN school_classes sc ON sc.id = s.current_class_id
+        WHERE s.id = $1 AND s.school_id = $2
+        """,
+        student_id,
+        school_id,
+    )
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Student not found in this school.", "code": "NOT_FOUND"},
+        )
+
+    if actor["role"] in ADMIN_ROLES:
+        return dict(student)
+
+    actor_id = _actor_user_id(actor)
+    class_id = student["current_class_id"]
+    if not class_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "You do not have access to this student's attendance.",
+                "code": "FORBIDDEN",
+            },
+        )
+
+    allowed = await conn.fetchval(
+        """
+        SELECT EXISTS(
+          SELECT 1 FROM teacher_class_assignments tca
+          WHERE tca.school_id = $1 AND tca.teacher_id = $2 AND tca.class_id = $3
+        )
+        OR EXISTS(
+          SELECT 1 FROM timetable_periods tp
+          WHERE tp.school_id = $1 AND tp.teacher_id = $2 AND tp.class_id = $3
+        )
+        """,
+        school_id,
+        actor_id,
+        class_id,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "You do not have access to this student's attendance.",
+                "code": "FORBIDDEN",
+            },
+        )
+    return dict(student)
 
 
 # ── GET /schools/attendance/timetable ──────────────────────────────────────────
@@ -209,22 +317,20 @@ async def get_attendance_summary(
 ):
     school_id, actor = ctx
     _require_allowed_role(actor)
+    await _assert_can_view_student(conn, actor, student_id, school_id)
 
     row = await conn.fetchrow(
         """
         WITH student_class AS (
           SELECT s.id AS student_id, s.current_class_id AS class_id
           FROM students s
-          WHERE s.id = $1
-            AND s.school_id = $2
-            AND s.status = 'active'
+          WHERE s.id = $1 AND s.school_id = $2
         ),
         school_days AS (
           SELECT COUNT(DISTINCT a.date)::int AS total_school_days
           FROM attendance a
           JOIN student_class sc ON sc.class_id = a.class_id
-          WHERE a.term_id = $3
-            AND a.school_id = $2
+          WHERE a.term_id = $3 AND a.school_id = $2
         ),
         attended_days AS (
           SELECT COUNT(DISTINCT a.date)::int AS days_attended
@@ -233,34 +339,568 @@ async def get_attendance_summary(
           WHERE a.term_id = $3
             AND a.school_id = $2
             AND a.status IN ('present', 'late')
+        ),
+        absent_days AS (
+          SELECT COUNT(DISTINCT a.date)::int AS days_absent
+          FROM attendance a
+          JOIN student_class sc ON sc.student_id = a.student_id
+          WHERE a.term_id = $3
+            AND a.school_id = $2
+            AND a.status = 'absent'
+            AND NOT EXISTS (
+              SELECT 1 FROM attendance a2
+              WHERE a2.student_id = a.student_id
+                AND a2.date = a.date
+                AND a2.term_id = $3
+                AND a2.school_id = $2
+                AND a2.status IN ('present', 'late')
+            )
         )
         SELECT
           $1::uuid AS student_id,
           $3::uuid AS term_id,
           COALESCE((SELECT days_attended FROM attended_days), 0) AS days_attended,
           COALESCE((SELECT total_school_days FROM school_days), 0) AS total_school_days,
-          EXISTS(SELECT 1 FROM student_class) AS student_found
+          COALESCE((SELECT days_absent FROM absent_days), 0) AS days_absent
         """,
         student_id,
         school_id,
         term_id,
     )
 
-    if not row or not row["student_found"]:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": "Student not found in this school.",
-                "code": "NOT_FOUND",
-            },
-        )
+    total = int(row["total_school_days"]) if row else 0
+    attended = int(row["days_attended"]) if row else 0
+    rate = round((attended / total) * 100, 1) if total > 0 else 0.0
 
     return {
         "data": {
             "studentId": str(row["student_id"]),
             "termId": str(row["term_id"]),
-            "daysAttended": row["days_attended"],
-            "totalSchoolDays": row["total_school_days"],
+            "daysAttended": attended,
+            "totalSchoolDays": total,
+            "daysAbsent": int(row["days_absent"]) if row else 0,
+            "attendanceRate": rate,
+            "riskLevel": _risk_level(rate, 0),
+        }
+    }
+
+
+# ── GET /schools/attendance/students/{student_id} ─────────────────────────────
+
+@router.get("/students/{student_id}")
+async def get_student_attendance_dossier(
+    student_id: uuid.UUID,
+    ctx: TenantCtx,
+    conn: asyncpg.Connection = Depends(get_db),
+    term_id: uuid.UUID = Query(...),
+    date_from: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    date_to: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+):
+    school_id, actor = ctx
+    _require_allowed_role(actor)
+    student = await _assert_can_view_student(conn, actor, student_id, school_id)
+
+    # Default range: term bounds or last 90 days
+    term_row = await conn.fetchrow(
+        """
+        SELECT id, name, start_date, end_date
+        FROM terms
+        WHERE id = $1 AND school_id = $2
+        """,
+        term_id,
+        school_id,
+    )
+    if not term_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Term not found.", "code": "NOT_FOUND"},
+        )
+
+    today = datetime.now(tz=EAT).date()
+    parsed_from = (
+        datetime.strptime(date_from, "%Y-%m-%d").date()
+        if date_from
+        else (term_row["start_date"] or today.replace(month=1, day=1))
+    )
+    parsed_to = (
+        datetime.strptime(date_to, "%Y-%m-%d").date()
+        if date_to
+        else min(term_row["end_date"] or today, today)
+    )
+    if parsed_from > parsed_to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "date_from must be on or before date_to.", "code": "VALIDATION_ERROR"},
+        )
+
+    class_id = student["current_class_id"]
+
+    period_stats = await conn.fetchrow(
+        """
+        SELECT
+          COUNT(*) FILTER (WHERE a.status = 'present')::int AS periods_present,
+          COUNT(*) FILTER (WHERE a.status = 'late')::int AS periods_late,
+          COUNT(*) FILTER (WHERE a.status = 'absent')::int AS periods_absent
+        FROM attendance a
+        WHERE a.school_id = $1
+          AND a.student_id = $2
+          AND a.term_id = $3
+          AND a.date BETWEEN $4 AND $5
+        """,
+        school_id,
+        student_id,
+        term_id,
+        parsed_from,
+        parsed_to,
+    )
+
+    day_rows = await conn.fetch(
+        """
+        SELECT
+          a.date,
+          COUNT(*) FILTER (WHERE a.status = 'present')::int AS present_n,
+          COUNT(*) FILTER (WHERE a.status = 'late')::int AS late_n,
+          COUNT(*) FILTER (WHERE a.status = 'absent')::int AS absent_n
+        FROM attendance a
+        WHERE a.school_id = $1
+          AND a.student_id = $2
+          AND a.term_id = $3
+          AND a.date BETWEEN $4 AND $5
+        GROUP BY a.date
+        ORDER BY a.date ASC
+        """,
+        school_id,
+        student_id,
+        term_id,
+        parsed_from,
+        parsed_to,
+    )
+
+    school_days = 0
+    if class_id:
+        school_days = await conn.fetchval(
+            """
+            SELECT COUNT(DISTINCT a.date)::int
+            FROM attendance a
+            WHERE a.school_id = $1
+              AND a.class_id = $2
+              AND a.term_id = $3
+              AND a.date BETWEEN $4 AND $5
+            """,
+            school_id,
+            class_id,
+            term_id,
+            parsed_from,
+            parsed_to,
+        ) or 0
+
+    days_present = 0
+    days_late = 0
+    days_absent = 0
+    calendar = []
+    for r in day_rows:
+        p, l, ab = r["present_n"], r["late_n"], r["absent_n"]
+        if p > 0 and ab == 0 and l == 0:
+            day_status = "present"
+            days_present += 1
+        elif l > 0 and ab == 0 and p == 0:
+            day_status = "late"
+            days_late += 1
+        elif (p > 0 or l > 0) and ab > 0:
+            day_status = "partial"
+            days_present += 1  # partial still counts as attended day
+        elif ab > 0 and p == 0 and l == 0:
+            day_status = "absent"
+            days_absent += 1
+        elif p > 0 or l > 0:
+            day_status = "present" if p >= l else "late"
+            if day_status == "present":
+                days_present += 1
+            else:
+                days_late += 1
+        else:
+            day_status = "none"
+        calendar.append({
+            "date": r["date"].isoformat(),
+            "dayStatus": day_status,
+            "present": p,
+            "late": l,
+            "absent": ab,
+        })
+
+    days_attended = days_present + days_late
+    rate = round((days_attended / school_days) * 100, 1) if school_days > 0 else 0.0
+
+    # Consecutive absent days from the end of the range
+    consecutive = 0
+    for r in reversed(day_rows):
+        p, l, ab = r["present_n"], r["late_n"], r["absent_n"]
+        if ab > 0 and p == 0 and l == 0:
+            consecutive += 1
+        else:
+            break
+
+    # Weekly trend
+    weekly_rows = await conn.fetch(
+        """
+        SELECT
+          date_trunc('week', a.date)::date AS week_start,
+          COUNT(*) FILTER (WHERE a.status = 'present')::int AS present,
+          COUNT(*) FILTER (WHERE a.status = 'late')::int AS late,
+          COUNT(*) FILTER (WHERE a.status = 'absent')::int AS absent
+        FROM attendance a
+        WHERE a.school_id = $1
+          AND a.student_id = $2
+          AND a.term_id = $3
+          AND a.date BETWEEN $4 AND $5
+        GROUP BY 1
+        ORDER BY 1 ASC
+        """,
+        school_id,
+        student_id,
+        term_id,
+        parsed_from,
+        parsed_to,
+    )
+    weekly_trend = []
+    for w in weekly_rows:
+        total_m = w["present"] + w["late"] + w["absent"]
+        w_rate = round(((w["present"] + w["late"]) / total_m) * 100, 1) if total_m > 0 else 0.0
+        weekly_trend.append({
+            "weekStart": w["week_start"].isoformat(),
+            "present": w["present"],
+            "late": w["late"],
+            "absent": w["absent"],
+            "rate": w_rate,
+        })
+
+    by_subject_rows = await conn.fetch(
+        """
+        SELECT
+          COALESCE(ss.name, 'Unknown') AS subject_name,
+          COUNT(*) FILTER (WHERE a.status = 'present')::int AS present,
+          COUNT(*) FILTER (WHERE a.status = 'late')::int AS late,
+          COUNT(*) FILTER (WHERE a.status = 'absent')::int AS absent
+        FROM attendance a
+        LEFT JOIN timetable_periods tp ON tp.id = a.timetable_period_id
+        LEFT JOIN school_subjects ss ON ss.id = tp.subject_id
+        WHERE a.school_id = $1
+          AND a.student_id = $2
+          AND a.term_id = $3
+          AND a.date BETWEEN $4 AND $5
+        GROUP BY COALESCE(ss.name, 'Unknown')
+        ORDER BY subject_name ASC
+        """,
+        school_id,
+        student_id,
+        term_id,
+        parsed_from,
+        parsed_to,
+    )
+    by_subject = []
+    for s in by_subject_rows:
+        total_m = s["present"] + s["late"] + s["absent"]
+        s_rate = round(((s["present"] + s["late"]) / total_m) * 100, 1) if total_m > 0 else 0.0
+        by_subject.append({
+            "subjectName": s["subject_name"],
+            "present": s["present"],
+            "late": s["late"],
+            "absent": s["absent"],
+            "rate": s_rate,
+        })
+
+    absence_rows = await conn.fetch(
+        """
+        SELECT
+          a.date::text AS date,
+          a.status,
+          a.notes,
+          ss.name AS subject_name,
+          tp.period_number,
+          tp.start_time::text AS start_time,
+          u.full_name AS recorded_by_name
+        FROM attendance a
+        LEFT JOIN timetable_periods tp ON tp.id = a.timetable_period_id
+        LEFT JOIN school_subjects ss ON ss.id = tp.subject_id
+        LEFT JOIN users u ON u.id = a.recorded_by
+        WHERE a.school_id = $1
+          AND a.student_id = $2
+          AND a.term_id = $3
+          AND a.date BETWEEN $4 AND $5
+          AND a.status = 'absent'
+        ORDER BY a.date DESC, tp.start_time DESC NULLS LAST
+        LIMIT 40
+        """,
+        school_id,
+        student_id,
+        term_id,
+        parsed_from,
+        parsed_to,
+    )
+    recent_absences = []
+    for a in absence_rows:
+        start_lbl = (a["start_time"] or "")[:5]
+        period_label = (
+            f"Period {a['period_number']}" + (f" ({start_lbl})" if start_lbl else "")
+            if a["period_number"] is not None
+            else "—"
+        )
+        recent_absences.append({
+            "date": a["date"],
+            "subjectName": a["subject_name"] or "—",
+            "periodLabel": period_label,
+            "notes": a["notes"],
+            "recordedBy": a["recorded_by_name"],
+        })
+
+    guardian = await conn.fetchrow(
+        """
+        SELECT id, full_name, phone, email
+        FROM student_guardians
+        WHERE student_id = $1 AND school_id = $2 AND is_primary = true
+        LIMIT 1
+        """,
+        student_id,
+        school_id,
+    )
+
+    recent_notices: list[asyncpg.Record] = []
+    try:
+        recent_notices = await conn.fetch(
+            """
+            SELECT
+              id::text,
+              trigger_type,
+              attendance_date::text AS attendance_date,
+              status,
+              message_body,
+              created_at::text AS created_at
+            FROM attendance_notifications
+            WHERE school_id = $1 AND student_id = $2
+            ORDER BY created_at DESC
+            LIMIT 10
+            """,
+            school_id,
+            student_id,
+        )
+    except asyncpg.UndefinedTableError:
+        recent_notices = []
+
+    return {
+        "data": {
+            "studentId": str(student_id),
+            "studentName": student["full_name"],
+            "learnerId": student["learner_id"] or "N/A",
+            "className": _class_display_name(student["level"] or "", student["stream"]) if student["level"] else None,
+            "termId": str(term_id),
+            "termName": term_row["name"],
+            "dateFrom": parsed_from.isoformat(),
+            "dateTo": parsed_to.isoformat(),
+            "kpis": {
+                "attendanceRate": rate,
+                "schoolDays": school_days,
+                "daysPresent": days_present,
+                "daysLate": days_late,
+                "daysAbsent": days_absent,
+                "daysAttended": days_attended,
+                "periodsPresent": period_stats["periods_present"] if period_stats else 0,
+                "periodsLate": period_stats["periods_late"] if period_stats else 0,
+                "periodsAbsent": period_stats["periods_absent"] if period_stats else 0,
+                "consecutiveAbsentDays": consecutive,
+                "riskLevel": _risk_level(rate, consecutive),
+            },
+            "weeklyTrend": weekly_trend,
+            "bySubject": by_subject,
+            "recentAbsences": recent_absences,
+            "calendar": calendar,
+            "guardian": {
+                "id": str(guardian["id"]) if guardian else None,
+                "name": guardian["full_name"] if guardian else None,
+                "phone": guardian["phone"] if guardian else None,
+                "email": guardian["email"] if guardian else None,
+                "canNotify": bool(guardian and guardian["phone"]),
+            },
+            "recentNotifications": [
+                {
+                    "id": n["id"],
+                    "triggerType": n["trigger_type"],
+                    "attendanceDate": n["attendance_date"],
+                    "status": n["status"],
+                    "messageBody": n["message_body"],
+                    "createdAt": n["created_at"],
+                }
+                for n in recent_notices
+            ],
+        }
+    }
+
+
+# ── POST /schools/attendance/students/{student_id}/notify ─────────────────────
+
+@router.post("/students/{student_id}/notify")
+async def notify_student_parent(
+    student_id: uuid.UUID,
+    body: NotifyParentPayload,
+    ctx: TenantCtx,
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    school_id, actor = ctx
+    _require_allowed_role(actor)
+    student = await _assert_can_view_student(conn, actor, student_id, school_id)
+    actor_id = _actor_user_id(actor)
+    parsed_date = datetime.strptime(body.date, "%Y-%m-%d").date()
+
+    if body.type == "period_absent" and not body.timetable_period_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "timetable_period_id is required for period_absent notifications.",
+                "code": "VALIDATION_ERROR",
+            },
+        )
+
+    guardian = await conn.fetchrow(
+        """
+        SELECT id, full_name, phone
+        FROM student_guardians
+        WHERE student_id = $1 AND school_id = $2 AND is_primary = true
+        LIMIT 1
+        """,
+        student_id,
+        school_id,
+    )
+    if not guardian or not guardian["phone"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Primary guardian phone number is missing.",
+                "code": "NO_GUARDIAN_PHONE",
+            },
+        )
+
+    school = await conn.fetchrow(
+        "SELECT name FROM schools WHERE id = $1",
+        school_id,
+    )
+    school_name = school["name"] if school else "School"
+    class_name = (
+        _class_display_name(student["level"] or "", student["stream"])
+        if student.get("level")
+        else "—"
+    )
+
+    subject_name = None
+    if body.timetable_period_id:
+        subj = await conn.fetchrow(
+            """
+            SELECT ss.name AS subject_name
+            FROM timetable_periods tp
+            JOIN school_subjects ss ON ss.id = tp.subject_id
+            WHERE tp.id = $1 AND tp.school_id = $2
+            """,
+            body.timetable_period_id,
+            school_id,
+        )
+        subject_name = subj["subject_name"] if subj else None
+
+    date_label = parsed_date.strftime("%d %b %Y")
+    if body.message and body.message.strip():
+        message_body = body.message.strip()
+    elif body.type == "period_absent":
+        message_body = (
+            f"Dear {guardian['full_name']}, {student['full_name']} ({class_name}) was marked absent "
+            f"for {subject_name or 'a lesson'} on {date_label}. "
+            f"Please contact the school if this is unexpected. — {school_name}"
+        )
+    elif body.type == "day_absent":
+        message_body = (
+            f"Dear {guardian['full_name']}, {student['full_name']} ({class_name}) was marked absent "
+            f"on {date_label}. Please contact the school if this is unexpected. — {school_name}"
+        )
+    else:
+        message_body = (
+            f"Dear {guardian['full_name']}, this is a notice regarding {student['full_name']} "
+            f"({class_name}) attendance on {date_label}. Please contact the school for details. — {school_name}"
+        )
+
+    # Dedup check (except manual may allow custom but still use unique constraint)
+    existing = await conn.fetchrow(
+        """
+        SELECT id, status FROM attendance_notifications
+        WHERE school_id = $1
+          AND student_id = $2
+          AND trigger_type = $3
+          AND attendance_date = $4
+          AND COALESCE(timetable_period_id, '00000000-0000-0000-0000-000000000000'::uuid)
+              = COALESCE($5::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
+        """,
+        school_id,
+        student_id,
+        body.type,
+        parsed_date,
+        body.timetable_period_id,
+    )
+    if existing and body.type != "manual":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "A notification for this absence was already queued or sent.",
+                "code": "ALREADY_NOTIFIED",
+            },
+        )
+
+    # Manual with same day: allow by appending unique suffix via separate trigger only once per day
+    # For manual duplicates, update message and re-queue if skipped/failed; else conflict
+    if existing and body.type == "manual":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "A manual notification for this date was already recorded.",
+                "code": "ALREADY_NOTIFIED",
+            },
+        )
+
+    # MakyReach not wired — queue as skipped (mirrors fees SMS stub)
+    try:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO attendance_notifications
+              (school_id, student_id, guardian_id, trigger_type, attendance_date,
+               timetable_period_id, channel, message_body, status, triggered_by)
+            VALUES ($1, $2, $3, $4, $5, $6, 'sms', $7, 'skipped', $8)
+            RETURNING id, status, created_at
+            """,
+            school_id,
+            student_id,
+            guardian["id"],
+            body.type,
+            parsed_date,
+            body.timetable_period_id,
+            message_body,
+            actor_id,
+        )
+    except asyncpg.UndefinedTableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "Attendance notifications are not set up yet. Run migration 035.",
+                "code": "MIGRATION_REQUIRED",
+            },
+        ) from None
+
+    return {
+        "data": {
+            "id": str(row["id"]),
+            "status": row["status"],
+            "queued": True,
+            "sent": False,
+            "message": (
+                "Parent notification prepared. MakyReach SMS is not configured yet — "
+                "the message was saved but not sent."
+            ),
+            "preview": message_body,
+            "guardianPhone": guardian["phone"],
+            "guardianName": guardian["full_name"],
         }
     }
 

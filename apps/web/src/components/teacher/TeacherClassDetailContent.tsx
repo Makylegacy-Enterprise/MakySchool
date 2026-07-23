@@ -10,6 +10,7 @@ import { QueryState } from "@makyschool/ui/components/ui/QueryState";
 import { Skeleton } from "@makyschool/ui/components/ui/Skeleton";
 import { SkeletonTable } from "@makyschool/ui/components/ui/Skeleton";
 import { useApiSWR } from "@/hooks/useApiSWR";
+import { TeacherStudentAttendanceDrawer } from "@/components/teacher/TeacherStudentAttendanceDrawer";
 
 type ClassDetail = {
   id: string;
@@ -31,6 +32,7 @@ type Tab = "students" | "marks" | "subjects";
 
 export function TeacherClassDetailContent({ classId }: { classId: string }) {
   const [tab, setTab] = useState<Tab>("students");
+  const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const classQuery = useApiSWR<ClassDetail>(`/schools/classes/${classId}`);
   const studentsQuery = useApiSWR<StudentRow[]>(
     tab === "students" ? `/schools/classes/${classId}/students` : null,
@@ -161,15 +163,27 @@ export function TeacherClassDetailContent({ classId }: { classId: string }) {
                             <th className="px-4 py-3 text-left">Name</th>
                             <th className="px-4 py-3 text-left">Learner ID</th>
                             <th className="px-4 py-3 text-left">Gender</th>
+                            <th className="px-4 py-3 text-right">Attendance</th>
                           </tr>
                         </thead>
                         <tbody>
                           {rows.map((student) => (
-                            <tr key={student.id} className="border-t border-theme">
+                            <tr key={student.id} className="border-t border-theme hover:bg-theme-raised/50">
                               <td className="px-4 py-3 font-medium text-theme-primary">{student.name}</td>
-                              <td className="px-4 py-3 text-theme-muted">{student.learner_id || "—"}</td>
+                              <td className="px-4 py-3 font-mono text-sm text-theme-muted">
+                                {student.learner_id || "—"}
+                              </td>
                               <td className="px-4 py-3 capitalize text-theme-muted">
                                 {student.gender || "—"}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  type="button"
+                                  className="text-sm font-semibold text-theme-accent hover:underline"
+                                  onClick={() => setSelectedStudent(student)}
+                                >
+                                  View
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -208,6 +222,13 @@ export function TeacherClassDetailContent({ classId }: { classId: string }) {
                   )}
                 </div>
               ) : null}
+
+              <TeacherStudentAttendanceDrawer
+                open={!!selectedStudent}
+                onClose={() => setSelectedStudent(null)}
+                studentId={selectedStudent?.id ?? null}
+                studentName={selectedStudent?.name ?? ""}
+              />
             </>
           );
         }}
